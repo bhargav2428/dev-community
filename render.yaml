@@ -1,0 +1,41 @@
+# Render Blueprint for DevCommunity API
+# Deploy the Express backend to Render.com
+
+services:
+  - type: web
+    name: devcommunity-api
+    env: node
+    region: ohio
+    plan: free
+    buildCommand: cd apps/api && npm install && npm run build
+    startCommand: cd apps/api && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: ENABLE_REDIS
+        value: false
+      - key: ENABLE_OAUTH_GOOGLE
+        value: false
+      - key: ENABLE_OAUTH_GITHUB
+        value: false
+      - key: ENABLE_EMAIL
+        value: false
+      - key: ENABLE_AWS_S3
+        value: false
+      - key: ENABLE_OPENAI
+        value: true
+      - key: ENABLE_ELASTICSEARCH
+        value: false

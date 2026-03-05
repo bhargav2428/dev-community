@@ -1,0 +1,46 @@
+{
+  "name": "devcommunity",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Developer Social Network - A platform for developers to connect, collaborate, and build together",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "lint:fix": "pnpm -r run lint:fix",
+    "type-check": "pnpm -r run type-check",
+    "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo",
+    "db:generate": "pnpm --filter @devcommunity/api run db:generate",
+    "db:push": "pnpm --filter @devcommunity/api run db:push",
+    "db:migrate": "pnpm --filter @devcommunity/api run db:migrate",
+    "db:seed": "pnpm --filter @devcommunity/api run db:seed",
+    "db:studio": "pnpm --filter @devcommunity/api run db:studio",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
+    "prepare": "husky install"
+  },
+  "keywords": [
+    "developer",
+    "social-network",
+    "community",
+    "collaboration",
+    "open-source",
+    "startup",
+    "hackathon"
+  ],
+  "author": "DevCommunity Team",
+  "license": "MIT",
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.2",
+    "typescript": "^5.5.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

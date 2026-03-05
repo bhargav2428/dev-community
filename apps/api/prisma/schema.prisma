@@ -1,0 +1,2050 @@
+// DevConnect - Developer Social Network
+// MongoDB Database Schema with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String?
+  firstName         String?
+  lastName          String?
+  displayName       String?
+  
+  // Profile
+  avatar            String?
+  coverImage        String?
+  bio               String?
+  headline          String?
+  location          String?
+  website           String?
+  githubUrl         String?
+  linkedinUrl       String?
+  twitterUrl        String?
+  
+  // Status
+  isVerified        Boolean   @default(false)
+  isOnline          Boolean   @default(false)
+  lastSeenAt        DateTime?
+  emailVerified     Boolean   @default(false)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  
+  // Settings
+  isAvailableForHire Boolean  @default(false)
+  isOpenToCollab    Boolean   @default(true)
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  
+  // Reputation System
+  reputationScore   Int       @default(0)
+  level             Int       @default(1)
+  xp                Int       @default(0)
+  
+  // Role & Permissions
+  role              UserRole  @default(USER)
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  
+  // Relations
+  profile           Profile?
+  oauthAccounts     OAuthAccount[]
+  sessions          Session[]
+  skills            UserSkill[]
+  experiences       Experience[]
+  education         Education[]
+  projects          ProjectMember[]
+  ownedProjects     Project[]       @relation("ProjectOwner")
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  bookmarks         Bookmark[]
+  followers         Follow[]        @relation("Following")
+  following         Follow[]        @relation("Follower")
+  sentMessages      Message[]       @relation("MessageSender")
+  receivedMessages  Message[]       @relation("MessageReceiver")
+  conversations     ConversationMember[]
+  notifications     Notification[]  @relation("UserNotifications")
+  sentNotifications Notification[]  @relation("SentNotifications")
+  ideas             StartupIdea[]
+  ideaVotes         IdeaVote[]
+  teamInvitations   TeamInvitation[]
+  badges            UserBadge[]
+  contributions     Contribution[]
+  hackathonParticipations HackathonParticipant[]
+  jobApplications   JobApplication[]
+  postedJobs        Job[]
+  activities        Activity[]
+  reports           Report[]        @relation("Reporter")
+  reportedContent   Report[]        @relation("ReportedUser")
+  blockedUsers      Block[]         @relation("Blocker")
+  blockedBy         Block[]         @relation("Blocked")
+  refreshTokens     RefreshToken[]
+  
+  // Unique Features Relations
+  coffeeChatsHosted  CoffeeChat[]    @relation("CoffeeChatHost")
+  coffeeChatsJoined  CoffeeChat[]    @relation("CoffeeChatGuest")
+  bountiesCreated    CodeBounty[]    @relation("BountyCreator")
+  bountySubmissions  BountySubmission[] @relation("BountySubmitter")
+  skillTrees         UserSkillTree[]
+  pairSessionsHosted PairSession[]   @relation("PairSessionHost")
+  pairSessionsJoined PairSession[]   @relation("PairSessionPartner")
+  interviewsGiven    MockInterview[] @relation("MockInterviewer")
+  interviewsTaken    MockInterview[] @relation("MockInterviewee")
+  mentorProfile      MentorProfile?
+  mentorships        MentorRelationship[]
+  mentorSessions     MentorSession[] @relation("MenteeSessions")
+  mentorReviews      MentorReview[]  @relation("MentorReviews")
+  buildUpdates       BuildInPublic[]
+  wrappedStats       DeveloperWrapped[]
+}
+
+model Profile {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @unique @db.ObjectId
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Extended Profile
+  yearsOfExperience Int?
+  currentRole       String?
+  company           String?
+  resumeUrl         String?
+  portfolioUrl      String?
+  
+  // Preferences
+  timezone          String?
+  preferredLanguage String?   @default("en")
+  
+  // GitHub Stats (cached)
+  githubUsername    String?
+  githubRepos       Int       @default(0)
+  githubStars       Int       @default(0)
+  githubContributions Int     @default(0)
+  githubLastSynced  DateTime?
+  
+  // Analytics
+  profileViews      Int       @default(0)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model OAuthAccount {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @db.ObjectId
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  provider          OAuthProvider
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  tokenType         String?
+  scope             String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token         String    @unique
+  userAgent     String?
+  ipAddress     String?
+  expiresAt     DateTime
+  
+  createdAt     DateTime  @default(now())
+}
+
+model RefreshToken {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token         String    @unique
+  expiresAt     DateTime
+  isRevoked     Boolean   @default(false)
+  
+  createdAt     DateTime  @default(now())
+}
+
+model VerificationToken {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  email         String
+  token         String    @unique
+  type          TokenType
+  expiresAt     DateTime
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// SKILLS & EXPERTISE
+// ============================================
+
+model Skill {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  name          String      @unique
+  slug          String      @unique
+  category      SkillCategory
+  icon          String?
+  color         String?
+  description   String?
+  
+  users         UserSkill[]
+  projects      ProjectSkill[]
+  jobs          JobSkill[]
+  ideas         IdeaSkill[]
+  
+  createdAt     DateTime    @default(now())
+}
+
+model UserSkill {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId       String    @db.ObjectId
+  skill         Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  level         SkillLevel @default(INTERMEDIATE)
+  yearsOfExp    Int?
+  isPrimary     Boolean   @default(false)
+  endorsements  Int       @default(0)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, skillId])
+}
+
+// ============================================
+// EXPERIENCE & EDUCATION
+// ============================================
+
+model Experience {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title         String
+  company       String
+  companyLogo   String?
+  location      String?
+  type          EmploymentType
+  description   String?
+  
+  startDate     DateTime
+  endDate       DateTime?
+  isCurrent     Boolean   @default(false)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Education {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  institution   String
+  degree        String
+  field         String?
+  logo          String?
+  description   String?
+  
+  startDate     DateTime
+  endDate       DateTime?
+  isCurrent     Boolean   @default(false)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ============================================
+// PROJECTS & COLLABORATION
+// ============================================
+
+model Project {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId         String    @db.ObjectId
+  owner           User      @relation("ProjectOwner", fields: [ownerId], references: [id])
+  
+  name            String
+  slug            String    @unique
+  description     String?
+  longDescription String?
+  
+  // Media
+  logo            String?
+  coverImage      String?
+  screenshots     String[]
+  
+  // Links
+  website         String?
+  githubUrl       String?
+  demoUrl         String?
+  
+  // Status
+  status          ProjectStatus @default(ACTIVE)
+  visibility      ProjectVisibility @default(PUBLIC)
+  stage           ProjectStage @default(IDEA)
+  
+  // Metrics
+  stars           Int       @default(0)
+  forks           Int       @default(0)
+  views           Int       @default(0)
+  
+  // Settings
+  isOpenSource    Boolean   @default(false)
+  isRecruiting    Boolean   @default(false)
+  maxTeamSize     Int?
+  
+  // Timestamps
+  launchedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  
+  // Relations
+  members         ProjectMember[]
+  skills          ProjectSkill[]
+  tasks           Task[]
+  milestones      Milestone[]
+  posts           Post[]    @relation("ProjectPosts")
+  channels        Channel[]
+  invitations     ProjectInvitation[]
+  contributions   Contribution[]
+  buildUpdates    BuildInPublic[]
+}
+
+model ProjectMember {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role          ProjectRole @default(MEMBER)
+  title         String?
+  joinedAt      DateTime  @default(now())
+  
+  @@unique([projectId, userId])
+}
+
+model ProjectSkill {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId   String    @db.ObjectId
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skillId     String    @db.ObjectId
+  skill       Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  isRequired  Boolean   @default(false)
+  
+  @@unique([projectId, skillId])
+}
+
+model ProjectInvitation {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  email         String?
+  userId        String?
+  role          ProjectRole @default(MEMBER)
+  message       String?
+  token         String    @unique
+  
+  status        InvitationStatus @default(PENDING)
+  expiresAt     DateTime
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// TASKS & MILESTONES
+// ============================================
+
+model Task {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title         String
+  description   String?
+  status        TaskStatus @default(TODO)
+  priority      TaskPriority @default(MEDIUM)
+  
+  assigneeId    String?
+  reporterId    String?
+  
+  dueDate       DateTime?
+  completedAt   DateTime?
+  
+  labels        String[]
+  order         Int       @default(0)
+  
+  milestoneId   String?   @db.ObjectId
+  milestone     Milestone? @relation(fields: [milestoneId], references: [id])
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Milestone {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title         String
+  description   String?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  
+  tasks         Task[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ============================================
+// SOCIAL FEED
+// ============================================
+
+model Post {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  authorId      String    @db.ObjectId
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  content       String
+  type          PostType  @default(TEXT)
+  
+  // Media
+  images        String[]
+  video         String?
+  linkPreview   Json?
+  
+  // Relations
+  projectId     String?   @db.ObjectId
+  project       Project?  @relation("ProjectPosts", fields: [projectId], references: [id])
+  
+  // Engagement
+  likesCount    Int       @default(0)
+  commentsCount Int       @default(0)
+  sharesCount   Int       @default(0)
+  viewsCount    Int       @default(0)
+  
+  // Settings
+  visibility    PostVisibility @default(PUBLIC)
+  isPinned      Boolean   @default(false)
+  
+  // Moderation
+  isApproved    Boolean   @default(true)
+  moderatedAt   DateTime?
+  
+  // Timestamps
+  publishedAt   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  
+  // Relations
+  comments      Comment[]
+  likes         Like[]
+  bookmarks     Bookmark[]
+  tags          PostTag[]
+  shares        Share[]
+}
+
+model Comment {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId        String    @db.ObjectId
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId      String    @db.ObjectId
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  content       String
+  
+  // Nested comments
+  parentId      String?   @db.ObjectId
+  parent        Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies       Comment[] @relation("CommentReplies")
+  
+  likesCount    Int       @default(0)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+}
+
+model Like {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId        String    @db.ObjectId
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Bookmark {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId        String    @db.ObjectId
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Share {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId        String    @db.ObjectId
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId        String
+  
+  platform      String?
+  
+  createdAt     DateTime  @default(now())
+}
+
+model Tag {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String    @unique
+  slug          String    @unique
+  description   String?
+  postsCount    Int       @default(0)
+  
+  posts         PostTag[]
+  
+  createdAt     DateTime  @default(now())
+}
+
+model PostTag {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId      String    @db.ObjectId
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId       String    @db.ObjectId
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([postId, tagId])
+}
+
+// ============================================
+// SOCIAL CONNECTIONS
+// ============================================
+
+model Follow {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  followerId    String    @db.ObjectId
+  follower      User      @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId   String    @db.ObjectId
+  following     User      @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+model Block {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  blockerId     String    @db.ObjectId
+  blocker       User      @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId     String    @db.ObjectId
+  blocked       User      @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+// ============================================
+// MESSAGING
+// ============================================
+
+model Conversation {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  type          ConversationType @default(DIRECT)
+  name          String?
+  avatar        String?
+  
+  lastMessageAt DateTime?
+  
+  members       ConversationMember[]
+  messages      Message[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ConversationMember {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId  String    @db.ObjectId
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId          String    @db.ObjectId
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role            ConversationRole @default(MEMBER)
+  lastReadAt      DateTime?
+  isMuted         Boolean   @default(false)
+  
+  joinedAt        DateTime  @default(now())
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId  String    @db.ObjectId
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String    @db.ObjectId
+  sender          User      @relation("MessageSender", fields: [senderId], references: [id])
+  
+  content         String
+  type            MessageType @default(TEXT)
+  
+  // Media
+  attachments     Json?
+  
+  // Reply
+  replyToId       String?
+  
+  // Status
+  isEdited        Boolean   @default(false)
+  isDeleted       Boolean   @default(false)
+  
+  // For DMs
+  receiverId      String?   @db.ObjectId
+  receiver        User?     @relation("MessageReceiver", fields: [receiverId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ============================================
+// PROJECT CHANNELS (Team Chat)
+// ============================================
+
+model Channel {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name          String
+  description   String?
+  type          ChannelType @default(TEXT)
+  isPrivate     Boolean   @default(false)
+  
+  messages      ChannelMessage[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ChannelMessage {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  channelId     String    @db.ObjectId
+  channel       Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId        String
+  
+  content       String
+  attachments   Json?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  
+  senderId      String?   @db.ObjectId
+  sender        User?     @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+  
+  type          NotificationType
+  title         String
+  message       String
+  
+  // Reference to related entity
+  entityType    String?
+  entityId      String?
+  
+  // Action URL
+  actionUrl     String?
+  
+  // Status
+  isRead        Boolean   @default(false)
+  readAt        DateTime?
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// STARTUP IDEAS MARKETPLACE
+// ============================================
+
+model StartupIdea {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  authorId        String    @db.ObjectId
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  title           String
+  slug            String    @unique
+  
+  // Problem & Solution
+  problem         String
+  solution        String
+  targetMarket    String?
+  
+  // Details
+  description     String?
+  businessModel   String?
+  competitors     String?
+  
+  // Media
+  coverImage      String?
+  pitchDeck       String?
+  
+  // Status
+  stage           IdeaStage @default(CONCEPT)
+  status          IdeaStatus @default(OPEN)
+  
+  // Engagement
+  votesCount      Int       @default(0)
+  commentsCount   Int       @default(0)
+  viewsCount      Int       @default(0)
+  
+  // Settings
+  isLookingForCofounder Boolean @default(true)
+  equity          String?
+  investment      String?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  
+  // Relations
+  skills          IdeaSkill[]
+  roles           IdeaRole[]
+  votes           IdeaVote[]
+  team            TeamInvitation[]
+}
+
+model IdeaSkill {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  ideaId      String      @db.ObjectId
+  idea        StartupIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  skillId     String      @db.ObjectId
+  skill       Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@unique([ideaId, skillId])
+}
+
+model IdeaRole {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  ideaId        String      @db.ObjectId
+  idea          StartupIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  
+  title         String
+  description   String?
+  responsibilities String?
+  requirements  String?
+  
+  isFilled      Boolean     @default(false)
+  
+  createdAt     DateTime    @default(now())
+}
+
+model IdeaVote {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  ideaId      String      @db.ObjectId
+  idea        StartupIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  userId      String      @db.ObjectId
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  value       Int
+  
+  createdAt   DateTime    @default(now())
+
+  @@unique([ideaId, userId])
+}
+
+model TeamInvitation {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  ideaId        String      @db.ObjectId
+  idea          StartupIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  userId        String      @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role          String?
+  message       String?
+  
+  status        InvitationStatus @default(PENDING)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// ============================================
+// HACKATHONS & EVENTS
+// ============================================
+
+model Hackathon {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  organizerId     String
+  
+  name            String
+  slug            String    @unique
+  description     String
+  
+  // Media
+  logo            String?
+  coverImage      String?
+  
+  // Details
+  theme           String?
+  prizes          Json?
+  rules           String?
+  judgingCriteria String?
+  
+  // Links
+  website         String?
+  
+  // Dates
+  startDate       DateTime
+  endDate         DateTime
+  registrationDeadline DateTime?
+  
+  // Location
+  isOnline        Boolean   @default(true)
+  location        String?
+  
+  // Status
+  status          HackathonStatus @default(UPCOMING)
+  
+  // Settings
+  maxParticipants Int?
+  maxTeamSize     Int?
+  
+  // Metrics
+  participantsCount Int     @default(0)
+  
+  participants    HackathonParticipant[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model HackathonParticipant {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  hackathonId   String    @db.ObjectId
+  hackathon     Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  teamName      String?
+  projectUrl    String?
+  submissionUrl String?
+  
+  status        ParticipantStatus @default(REGISTERED)
+  
+  createdAt     DateTime  @default(now())
+
+  @@unique([hackathonId, userId])
+}
+
+// ============================================
+// JOBS & OPPORTUNITIES
+// ============================================
+
+model Job {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  posterId        String    @db.ObjectId
+  poster          User      @relation(fields: [posterId], references: [id], onDelete: Cascade)
+  
+  title           String
+  slug            String    @unique
+  description     String
+  
+  // Company
+  companyName     String
+  companyLogo     String?
+  companyWebsite  String?
+  
+  // Details
+  type            JobType
+  experienceLevel ExperienceLevel
+  
+  // Compensation
+  salaryMin       Int?
+  salaryMax       Int?
+  salaryCurrency  String?   @default("USD")
+  equity          String?
+  
+  // Location
+  isRemote        Boolean   @default(true)
+  location        String?
+  timezone        String?
+  
+  // Requirements
+  requirements    String?
+  responsibilities String?
+  benefits        String?
+  
+  // Application
+  applicationUrl  String?
+  applicationEmail String?
+  
+  // Status
+  status          JobStatus @default(ACTIVE)
+  
+  // Metrics
+  viewsCount      Int       @default(0)
+  applicationsCount Int     @default(0)
+  
+  // Timestamps
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  skills          JobSkill[]
+  applications    JobApplication[]
+}
+
+model JobSkill {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  jobId       String    @db.ObjectId
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skillId     String    @db.ObjectId
+  skill       Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  isRequired  Boolean   @default(false)
+  
+  @@unique([jobId, skillId])
+}
+
+model JobApplication {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  jobId         String    @db.ObjectId
+  job           Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  coverLetter   String?
+  resumeUrl     String?
+  portfolioUrl  String?
+  
+  status        ApplicationStatus @default(PENDING)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([jobId, userId])
+}
+
+// ============================================
+// GAMIFICATION & REPUTATION
+// ============================================
+
+model Badge {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String    @unique
+  slug          String    @unique
+  description   String
+  icon          String
+  color         String?
+  
+  // Requirements
+  criteria      String?
+  xpReward      Int       @default(0)
+  
+  rarity        BadgeRarity @default(COMMON)
+  category      BadgeCategory
+  
+  users         UserBadge[]
+  
+  createdAt     DateTime  @default(now())
+}
+
+model UserBadge {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @db.ObjectId
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId     String    @db.ObjectId
+  badge       Badge     @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  earnedAt    DateTime  @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Contribution {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String?   @db.ObjectId
+  project       Project?  @relation(fields: [projectId], references: [id])
+  
+  type          ContributionType
+  description   String?
+  url           String?
+  
+  xpEarned      Int       @default(0)
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// ACTIVITY & ANALYTICS
+// ============================================
+
+model Activity {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          ActivityType
+  description   String
+  
+  entityType    String?
+  entityId      String?
+  
+  metadata      Json?
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// MODERATION
+// ============================================
+
+model Report {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  reporterId    String    @db.ObjectId
+  reporter      User      @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  
+  // Reported entity
+  entityType    String
+  entityId      String
+  
+  // Reported user (if applicable)
+  reportedUserId String?  @db.ObjectId
+  reportedUser  User?     @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  
+  reason        ReportReason
+  description   String?
+  
+  // Resolution
+  status        ReportStatus @default(PENDING)
+  resolvedAt    DateTime?
+  resolvedById  String?
+  resolution    String?
+  
+  createdAt     DateTime  @default(now())
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  CONNECTIONS_ONLY
+  PRIVATE
+}
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+  LINKEDIN
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR
+}
+
+enum SkillCategory {
+  LANGUAGE
+  FRAMEWORK
+  DATABASE
+  CLOUD
+  DEVOPS
+  DESIGN
+  MOBILE
+  AI_ML
+  BLOCKCHAIN
+  OTHER
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectVisibility {
+  PUBLIC
+  PRIVATE
+  TEAM_ONLY
+}
+
+enum ProjectStage {
+  IDEA
+  MVP
+  BETA
+  LAUNCHED
+  SCALING
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  LINK
+  PROJECT_LAUNCH
+  ACHIEVEMENT
+  HIRING
+  IDEA
+  BLOG
+}
+
+enum PostVisibility {
+  PUBLIC
+  CONNECTIONS_ONLY
+  PRIVATE
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ConversationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  FILE
+  CODE
+  SYSTEM
+}
+
+enum ChannelType {
+  TEXT
+  ANNOUNCEMENT
+}
+
+enum NotificationType {
+  FOLLOW
+  LIKE
+  COMMENT
+  MENTION
+  MESSAGE
+  PROJECT_INVITE
+  TEAM_INVITE
+  JOB_APPLICATION
+  ACHIEVEMENT
+  SYSTEM
+}
+
+enum IdeaStage {
+  CONCEPT
+  VALIDATING
+  BUILDING
+  LAUNCHED
+}
+
+enum IdeaStatus {
+  OPEN
+  BUILDING
+  CLOSED
+  ARCHIVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum HackathonStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  JUDGING
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  CHECKED_IN
+  SUBMITTED
+  WINNER
+  DISQUALIFIED
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+  COFOUNDER
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  FILLED
+  EXPIRED
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  INTERVIEWED
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum BadgeRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum BadgeCategory {
+  CONTRIBUTION
+  COLLABORATION
+  ACHIEVEMENT
+  COMMUNITY
+  SKILL
+  SPECIAL
+}
+
+enum ContributionType {
+  CODE_COMMIT
+  PULL_REQUEST
+  CODE_REVIEW
+  ISSUE_REPORTED
+  ISSUE_RESOLVED
+  DOCUMENTATION
+  DESIGN
+  MENTORING
+  COMMUNITY
+  OTHER
+}
+
+enum ActivityType {
+  JOINED
+  POSTED
+  COMMENTED
+  LIKED
+  FOLLOWED
+  PROJECT_CREATED
+  PROJECT_JOINED
+  BADGE_EARNED
+  LEVEL_UP
+  JOB_APPLIED
+  IDEA_POSTED
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  INAPPROPRIATE
+  COPYRIGHT
+  FAKE_PROFILE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+// ============================================
+// UNIQUE FEATURES - Virtual Coffee
+// ============================================
+
+model CoffeeChat {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  hostId          String          @db.ObjectId
+  guestId         String?         @db.ObjectId
+  
+  title           String?
+  topic           String?
+  description     String?
+  
+  scheduledAt     DateTime?
+  duration        Int             @default(15) // minutes
+  timezone        String?
+  
+  meetingUrl      String?
+  status          CoffeeChatStatus @default(AVAILABLE)
+  
+  // Host preferences
+  topics          String[]
+  languages       String[]        // Programming languages they can discuss
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  
+  host            User            @relation("CoffeeChatHost", fields: [hostId], references: [id])
+  guest           User?           @relation("CoffeeChatGuest", fields: [guestId], references: [id])
+  feedback        CoffeeFeedback[]
+  
+  @@index([hostId])
+  @@index([guestId])
+  @@index([status, scheduledAt])
+}
+
+model CoffeeFeedback {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  chatId          String          @db.ObjectId
+  giverId         String          @db.ObjectId
+  receiverId      String          @db.ObjectId
+  
+  rating          Int             // 1-5
+  comment         String?
+  wouldMeetAgain  Boolean         @default(true)
+  
+  createdAt       DateTime        @default(now())
+  
+  chat            CoffeeChat      @relation(fields: [chatId], references: [id])
+  
+  @@unique([chatId, giverId])
+}
+
+enum CoffeeChatStatus {
+  AVAILABLE
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================
+// UNIQUE FEATURES - Code Bounties
+// ============================================
+
+model CodeBounty {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId       String          @db.ObjectId
+  
+  title           String
+  description     String
+  requirements    String[]
+  
+  // Reward
+  rewardType      BountyRewardType @default(POINTS)
+  rewardAmount    Float
+  rewardCurrency  String?         @default("USD")
+  
+  // Technical details
+  difficulty      BountyDifficulty
+  skills          String[]
+  languages       String[]
+  estimatedHours  Int?
+  
+  // Links
+  repoUrl         String?
+  issueUrl        String?
+  
+  deadline        DateTime?
+  status          BountyStatus    @default(OPEN)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  
+  creator         User            @relation("BountyCreator", fields: [creatorId], references: [id])
+  submissions     BountySubmission[]
+  winner          BountySubmission? @relation("BountyWinner")
+  
+  @@index([creatorId])
+  @@index([status])
+  @@index([difficulty])
+}
+
+model BountySubmission {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  bountyId        String          @db.ObjectId
+  submitterId     String          @db.ObjectId
+  
+  description     String
+  solutionUrl     String?         // GitHub PR or repo link
+  codeSnippet     String?
+  
+  status          SubmissionStatus @default(PENDING)
+  feedback        String?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  bounty          CodeBounty      @relation(fields: [bountyId], references: [id])
+  submitter       User            @relation("BountySubmitter", fields: [submitterId], references: [id])
+  
+  // Winner relation
+  wonBountyId     String?         @unique @db.ObjectId
+  wonBounty       CodeBounty?     @relation("BountyWinner", fields: [wonBountyId], references: [id])
+  
+  @@unique([bountyId, submitterId])
+  @@index([bountyId])
+  @@index([submitterId])
+}
+
+enum BountyRewardType {
+  POINTS
+  CASH
+  SWAG
+  MIXED
+}
+
+enum BountyDifficulty {
+  BEGINNER
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum BountyStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SubmissionStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  WINNER
+  REJECTED
+}
+
+// ============================================
+// UNIQUE FEATURES - Skill Trees
+// ============================================
+
+model SkillTree {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  
+  name            String          @unique
+  displayName     String
+  description     String
+  icon            String?
+  color           String?
+  
+  category        SkillTreeCategory
+  totalNodes      Int             @default(0)
+  totalXp         Int             @default(0)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  nodes           SkillNode[]
+  userProgress    UserSkillTree[]
+}
+
+model SkillNode {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  treeId          String          @db.ObjectId
+  
+  name            String
+  description     String
+  icon            String?
+  
+  // Position in tree
+  level           Int             @default(1)
+  position        Int             @default(0)
+  
+  // Requirements
+  xpRequired      Int             @default(100)
+  prerequisiteIds String[]        @db.ObjectId
+  
+  // Rewards
+  badgeId         String?         @db.ObjectId
+  
+  createdAt       DateTime        @default(now())
+  
+  tree            SkillTree       @relation(fields: [treeId], references: [id])
+  userProgress    UserNodeProgress[]
+  
+  @@index([treeId])
+}
+
+model UserSkillTree {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String          @db.ObjectId
+  treeId          String          @db.ObjectId
+  
+  currentXp       Int             @default(0)
+  level           Int             @default(1)
+  nodesUnlocked   Int             @default(0)
+  isComplete      Boolean         @default(false)
+  
+  startedAt       DateTime        @default(now())
+  completedAt     DateTime?
+  
+  user            User            @relation(fields: [userId], references: [id])
+  tree            SkillTree       @relation(fields: [treeId], references: [id])
+  nodeProgress    UserNodeProgress[]
+  
+  @@unique([userId, treeId])
+  @@index([userId])
+  @@index([treeId])
+}
+
+model UserNodeProgress {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userTreeId      String          @db.ObjectId
+  nodeId          String          @db.ObjectId
+  
+  isUnlocked      Boolean         @default(false)
+  xpEarned        Int             @default(0)
+  
+  unlockedAt      DateTime?
+  
+  userTree        UserSkillTree   @relation(fields: [userTreeId], references: [id])
+  node            SkillNode       @relation(fields: [nodeId], references: [id])
+  
+  @@unique([userTreeId, nodeId])
+}
+
+enum SkillTreeCategory {
+  FRONTEND
+  BACKEND
+  FULLSTACK
+  DEVOPS
+  MOBILE
+  AI_ML
+  DATA
+  SECURITY
+  BLOCKCHAIN
+  GAME_DEV
+}
+
+// ============================================
+// UNIQUE FEATURES - Pair Programming
+// ============================================
+
+model PairSession {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  hostId          String          @db.ObjectId
+  partnerId       String?         @db.ObjectId
+  
+  title           String
+  description     String?
+  
+  // Session type
+  type            PairSessionType @default(GENERAL)
+  
+  // Technical context
+  language        String?
+  framework       String?
+  projectUrl      String?
+  
+  // Scheduling
+  scheduledAt     DateTime?
+  duration        Int             @default(60) // minutes
+  timezone        String?
+  
+  // Session details
+  meetingUrl      String?
+  codeUrl         String?         // VS Code Live Share or similar
+  
+  status          PairSessionStatus @default(LOOKING)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  startedAt       DateTime?
+  endedAt         DateTime?
+  
+  host            User            @relation("PairSessionHost", fields: [hostId], references: [id])
+  partner         User?           @relation("PairSessionPartner", fields: [partnerId], references: [id])
+  
+  @@index([hostId])
+  @@index([partnerId])
+  @@index([status])
+}
+
+enum PairSessionType {
+  GENERAL
+  DEBUGGING
+  CODE_REVIEW
+  LEARNING
+  INTERVIEW_PREP
+  PROJECT_WORK
+}
+
+enum PairSessionStatus {
+  LOOKING
+  MATCHED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// UNIQUE FEATURES - Mock Interviews
+// ============================================
+
+model MockInterview {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  interviewerId   String          @db.ObjectId
+  intervieweeId   String?         @db.ObjectId
+  
+  title           String
+  description     String?
+  
+  // Interview details
+  type            InterviewType
+  difficulty      InterviewDifficulty @default(MEDIUM)
+  duration        Int             @default(45) // minutes
+  
+  // Topics
+  topics          String[]
+  skills          String[]
+  
+  // Scheduling
+  scheduledAt     DateTime?
+  timezone        String?
+  meetingUrl      String?
+  
+  // Recording (optional)
+  recordingUrl    String?
+  recordingConsent Boolean        @default(false)
+  
+  status          MockInterviewStatus @default(AVAILABLE)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  
+  interviewer     User            @relation("MockInterviewer", fields: [interviewerId], references: [id])
+  interviewee     User?           @relation("MockInterviewee", fields: [intervieweeId], references: [id])
+  feedback        InterviewFeedback[]
+  
+  @@index([interviewerId])
+  @@index([intervieweeId])
+  @@index([status])
+  @@index([type])
+}
+
+model InterviewFeedback {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  interviewId     String          @db.ObjectId
+  giverId         String          @db.ObjectId
+  receiverId      String          @db.ObjectId
+  
+  // Ratings (1-5)
+  technicalRating Int
+  communicationRating Int
+  problemSolvingRating Int
+  overallRating   Int
+  
+  strengths       String[]
+  improvements    String[]
+  notes           String?
+  
+  wouldHire       Boolean?
+  
+  createdAt       DateTime        @default(now())
+  
+  interview       MockInterview   @relation(fields: [interviewId], references: [id])
+  
+  @@unique([interviewId, giverId])
+}
+
+enum InterviewType {
+  BEHAVIORAL
+  TECHNICAL
+  SYSTEM_DESIGN
+  CODING
+  FRONTEND
+  BACKEND
+  FULLSTACK
+  DATA_STRUCTURES
+}
+
+enum InterviewDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum MockInterviewStatus {
+  AVAILABLE
+  REQUESTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================
+// UNIQUE FEATURES - Mentor Marketplace
+// ============================================
+
+model MentorProfile {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String          @unique @db.ObjectId
+  
+  title           String
+  bio             String
+  
+  // Expertise
+  expertise       String[]
+  skills          String[]
+  yearsExperience Int
+  
+  // Availability
+  isAvailable     Boolean         @default(true)
+  hoursPerWeek    Int             @default(5)
+  timezone        String?
+  
+  // Pricing
+  isPaid          Boolean         @default(false)
+  hourlyRate      Float?
+  currency        String?         @default("USD")
+  
+  // Stats
+  totalMentees    Int             @default(0)
+  totalSessions   Int             @default(0)
+  rating          Float           @default(0)
+  reviewCount     Int             @default(0)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  user            User            @relation(fields: [userId], references: [id])
+  relationships   MentorRelationship[]
+  sessions        MentorSession[]
+  reviews         MentorReview[]
+}
+
+model MentorRelationship {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  mentorId        String          @db.ObjectId
+  menteeId        String          @db.ObjectId
+  
+  status          MentorshipStatus @default(PENDING)
+  
+  // Goals
+  goals           String[]
+  focusAreas      String[]
+  
+  // Progress
+  sessionsCompleted Int           @default(0)
+  currentStreak   Int             @default(0)
+  
+  startedAt       DateTime?
+  endedAt         DateTime?
+  nextSessionAt   DateTime?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  mentor          MentorProfile   @relation(fields: [mentorId], references: [id])
+  mentee          User            @relation(fields: [menteeId], references: [id])
+  
+  @@unique([mentorId, menteeId])
+  @@index([mentorId])
+  @@index([menteeId])
+}
+
+model MentorSession {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  mentorId        String          @db.ObjectId
+  menteeId        String          @db.ObjectId
+  
+  title           String?
+  agenda          String?
+  notes           String?
+  
+  scheduledAt     DateTime
+  duration        Int             @default(30)
+  meetingUrl      String?
+  
+  status          SessionStatus   @default(SCHEDULED)
+  
+  createdAt       DateTime        @default(now())
+  completedAt     DateTime?
+  
+  mentor          MentorProfile   @relation(fields: [mentorId], references: [id])
+  mentee          User            @relation("MenteeSessions", fields: [menteeId], references: [id])
+  
+  @@index([mentorId])
+  @@index([menteeId])
+}
+
+model MentorReview {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  mentorId        String          @db.ObjectId
+  reviewerId      String          @db.ObjectId
+  
+  rating          Int             // 1-5
+  comment         String?
+  
+  // Specific ratings
+  knowledgeRating Int?
+  communicationRating Int?
+  helpfulnessRating Int?
+  
+  createdAt       DateTime        @default(now())
+  
+  mentor          MentorProfile   @relation(fields: [mentorId], references: [id])
+  reviewer        User            @relation("MentorReviews", fields: [reviewerId], references: [id])
+  
+  @@unique([mentorId, reviewerId])
+}
+
+enum MentorshipStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  DECLINED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================
+// UNIQUE FEATURES - Build in Public
+// ============================================
+
+model BuildInPublic {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String          @db.ObjectId
+  projectId       String?         @db.ObjectId
+  
+  title           String
+  content         String
+  
+  // Update type
+  type            BuildUpdateType
+  
+  // Metrics (optional)
+  revenue         Float?
+  users           Int?
+  mrr             Float?
+  customMetrics   Json?
+  
+  // Media
+  images          String[]
+  links           String[]
+  
+  // Engagement
+  likesCount      Int             @default(0)
+  commentsCount   Int             @default(0)
+  sharesCount     Int             @default(0)
+  
+  isPublic        Boolean         @default(true)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  user            User            @relation(fields: [userId], references: [id])
+  project         Project?        @relation(fields: [projectId], references: [id])
+  
+  @@index([userId])
+  @@index([projectId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum BuildUpdateType {
+  MILESTONE
+  REVENUE_UPDATE
+  USER_UPDATE
+  FEATURE_LAUNCH
+  LESSON_LEARNED
+  WEEKLY_UPDATE
+  MONTHLY_RECAP
+  PIVOT
+  FAILURE
+  WIN
+}
+
+// ============================================
+// UNIQUE FEATURES - Developer Wrapped
+// ============================================
+
+model DeveloperWrapped {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String          @db.ObjectId
+  year            Int
+  
+  // Activity stats
+  postsCount      Int             @default(0)
+  commentsCount   Int             @default(0)
+  likesGiven      Int             @default(0)
+  likesReceived   Int             @default(0)
+  
+  // Collaboration
+  projectsJoined  Int             @default(0)
+  projectsCreated Int             @default(0)
+  coffeeChats     Int             @default(0)
+  pairSessions    Int             @default(0)
+  
+  // Growth
+  followersGained Int             @default(0)
+  followingAdded  Int             @default(0)
+  connectionsMode Int             @default(0)
+  
+  // Skills
+  skillsLearned   String[]
+  topSkills       String[]
+  skillTreesCompleted Int         @default(0)
+  
+  // Achievements
+  badgesEarned    Int             @default(0)
+  xpGained        Int             @default(0)
+  levelsGained    Int             @default(0)
+  
+  // Contributions
+  bountiesCompleted Int           @default(0)
+  bountyEarnings  Float           @default(0)
+  
+  // Top content
+  topPostId       String?         @db.ObjectId
+  topProjectId    String?         @db.ObjectId
+  
+  // Fun stats
+  mostActiveDay   String?
+  mostActiveHour  Int?
+  longestStreak   Int             @default(0)
+  totalDaysActive Int             @default(0)
+  
+  // Personality
+  developerType   String?         // "Night Owl", "Early Bird", etc.
+  topTags         String[]
+  
+  generatedAt     DateTime        @default(now())
+  isPublic        Boolean         @default(true)
+  shareUrl        String?
+  
+  user            User            @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, year])
+  @@index([userId])
+  @@index([year])
+}
+
+
