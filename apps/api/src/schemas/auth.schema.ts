@@ -80,7 +80,7 @@ export const refreshTokenSchema = z.object({
 
 // OAuth login schema
 export const oauthLoginSchema = z.object({
-  accessToken: z.string().optional(),
+  accessToken: z.string().min(1, 'OAuth access token is required'),
   refreshToken: z.string().optional(),
   profile: z.object({
     id: z.union([z.string(), z.number()]).transform((value) => String(value)),

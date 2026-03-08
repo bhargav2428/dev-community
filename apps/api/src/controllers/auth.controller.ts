@@ -18,6 +18,99 @@ import type {
 } from '../schemas/auth.schema.js';
 import type { OAuthProvider } from '@prisma/client';
 
+interface VerifiedOAuthProfile {
+  id: string;
+  email: string;
+  name?: string;
+  avatar?: string;
+}
+
+const verifyGoogleAccessToken = async (accessToken: string): Promise<VerifiedOAuthProfile> => {
+  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new BadRequestError('Invalid Google access token');
+  }
+
+  const profile = await response.json() as {
+    sub?: string;
+    email?: string;
+    email_verified?: boolean;
+    name?: string;
+    picture?: string;
+  };
+
+  if (!profile.sub || !profile.email) {
+    throw new BadRequestError('Google profile missing required fields');
+  }
+
+  if (profile.email_verified === false) {
+    throw new BadRequestError('Google account email is not verified');
+  }
+
+  return {
+    id: profile.sub,
+    email: profile.email.toLowerCase(),
+    name: profile.name,
+    avatar: profile.picture,
+  };
+};
+
+const verifyGithubAccessToken = async (accessToken: string): Promise<VerifiedOAuthProfile> => {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'devcommunity-api',
+  };
+
+  const userResponse = await fetch('https://api.github.com/user', { headers });
+  if (!userResponse.ok) {
+    throw new BadRequestError('Invalid GitHub access token');
+  }
+
+  const userProfile = await userResponse.json() as {
+    id?: number;
+    email?: string | null;
+    name?: string | null;
+    avatar_url?: string | null;
+    login?: string | null;
+  };
+
+  if (!userProfile.id) {
+    throw new BadRequestError('GitHub profile missing required fields');
+  }
+
+  let email = userProfile.email || undefined;
+  if (!email) {
+    const emailsResponse = await fetch('https://api.github.com/user/emails', { headers });
+    if (emailsResponse.ok) {
+      const emails = await emailsResponse.json() as Array<{
+        email: string;
+        primary: boolean;
+        verified: boolean;
+      }>;
+      const primaryEmail = emails.find((item) => item.primary && item.verified)
+        || emails.find((item) => item.verified);
+      email = primaryEmail?.email;
+    }
+  }
+
+  if (!email) {
+    throw new BadRequestError('GitHub account email is required');
+  }
+
+  return {
+    id: String(userProfile.id),
+    email: email.toLowerCase(),
+    name: userProfile.name || userProfile.login || undefined,
+    avatar: userProfile.avatar_url || undefined,
+  };
+};
+
 /**
  * Register new user
  * POST /api/auth/register
@@ -94,13 +187,17 @@ export const oauthLogin = asyncHandler(
       throw new BadRequestError('Unsupported OAuth provider');
     }
 
+    const verifiedProfile = provider === 'GOOGLE'
+      ? await verifyGoogleAccessToken(body.accessToken)
+      : await verifyGithubAccessToken(body.accessToken);
+
     const result = await authService.oauthLogin(
       provider,
-      body.profile.id,
+      verifiedProfile.id,
       {
-        email: body.profile.email,
-        name: body.profile.name,
-        avatar: body.profile.image,
+        email: verifiedProfile.email,
+        name: verifiedProfile.name,
+        avatar: verifiedProfile.avatar,
         accessToken: body.accessToken,
         refreshToken: body.refreshToken,
       }
