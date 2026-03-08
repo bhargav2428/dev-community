@@ -338,13 +338,19 @@ model Project {
 
   // Project starring
   projectStars    ProjectStar[]
+}
+
 // PROJECT STARRING
 model ProjectStar {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   // store user ObjectId as string
-  projectId String   // store project ObjectId as string
+  userId    String   @db.ObjectId
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-}
+
+  @@unique([userId, projectId])
+  @@index([projectId])
+  @@index([userId])
 }
 
 model ProjectMember {
