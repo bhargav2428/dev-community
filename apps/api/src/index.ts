@@ -45,10 +45,19 @@ import { initializeWebSocket } from './websocket/index.js';
 const app: Application = express();
 const httpServer = createServer(app);
 
+// Normalize origins to avoid mismatches from trailing spaces/newlines/slashes in env values.
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/$/, '');
+const allowedOrigins = env.CORS_ORIGIN
+  .split(',')
+  .map(normalizeOrigin)
+  .filter(Boolean);
+const isAllowedOrigin = (origin?: string) =>
+  !origin || allowedOrigins.includes(normalizeOrigin(origin));
+
 // Initialize Socket.io
 const io = new SocketServer(httpServer, {
   cors: {
-    origin: env.CORS_ORIGIN.split(','),
+    origin: allowedOrigins,
     credentials: true,
   },
   pingTimeout: 60000,
@@ -73,8 +82,7 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = env.CORS_ORIGIN.split(',');
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
