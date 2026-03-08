@@ -239,24 +239,10 @@ class EmailService {
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
-    if (!this.transporter) {
-      // Log email in development if no transporter configured
-      logger.info('Email would be sent:', { to, subject });
-      return;
-    }
-
-    try {
-      await this.transporter.sendMail({
-        from: config.email.from || 'DevConnect <noreply@devconnect.io>',
-        to,
-        subject,
-        html,
-      });
-      logger.info('Email sent successfully', { to, subject });
-    } catch (error) {
-      logger.error('Failed to send email', { to, subject, error });
-      throw error;
-    }
+    // Enqueue email job
+    const { emailQueue } = await import('./queue.js');
+    await emailQueue.add('send', { to, subject, html });
+    logger.info('Email job enqueued', { to, subject });
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {

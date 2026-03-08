@@ -28,6 +28,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { formatRelativeTime, cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -35,21 +36,31 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
+  // Redirect if username is invalid
+  useEffect(() => {
+    if (username === 'undefined' || !username) {
+      router.replace('/dashboard');
+    }
+  }, [username, router]);
+
+  const validUsername = username && username !== 'undefined';
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', username],
     queryFn: () => apiClient.get(`/users/${username}`),
+    enabled: !!validUsername,
   });
 
   const { data: userPosts } = useQuery({
     queryKey: ['user-posts', username],
     queryFn: () => apiClient.get(`/users/${username}/posts`),
-    enabled: !!username,
+    enabled: !!validUsername,
   });
 
   const { data: userProjects } = useQuery({
     queryKey: ['user-projects', username],
     queryFn: () => apiClient.get(`/users/${username}/projects`),
-    enabled: !!username,
+    enabled: !!validUsername,
   });
 
   const followMutation = useMutation({
@@ -80,8 +91,8 @@ export default function ProfilePage() {
     }
   };
 
-  const isOwnProfile = session?.user?.name === username || session?.user?.email?.split('@')[0] === username;
-  const user = profile?.data;
+  const isOwnProfile = session?.user?.username === username;
+  const user = profile;
   const isFollowing = user?.isFollowing;
 
   if (isLoading) {
@@ -319,7 +330,7 @@ export default function ProfilePage() {
               <Briefcase className="h-5 w-5" />
               Projects
             </span>
-            {userProjects?.data?.length > 3 && (
+            {userProjects?.length > 3 && (
               <Link href={`/profile/${username}/projects`} className="text-sm text-primary font-normal">
                 View all
               </Link>
@@ -327,9 +338,9 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {userProjects?.data?.length > 0 ? (
+          {userProjects?.length > 0 ? (
             <div className="space-y-4">
-              {userProjects.data.slice(0, 3).map((project: any) => (
+              {userProjects.slice(0, 3).map((project: any) => (
                 <Link
                   key={project.id}
                   href={`/projects/${project.slug}`}
@@ -372,9 +383,9 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {userPosts?.data?.length > 0 ? (
+          {userPosts?.length > 0 ? (
             <div className="space-y-4">
-              {userPosts.data.slice(0, 5).map((post: any) => (
+              {userPosts.slice(0, 5).map((post: any) => (
                 <Link
                   key={post.id}
                   href={`/posts/${post.id}`}

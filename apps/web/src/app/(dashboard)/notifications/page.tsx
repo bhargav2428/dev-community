@@ -13,9 +13,6 @@ import {
   UserPlus,
   Star,
   AtSign,
-  GitFork,
-  Trophy,
-  Briefcase,
   Check,
   CheckCheck,
   Settings,
@@ -37,9 +34,19 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<NotificationType>('all');
 
-  const { data: notifications, isLoading } = useQuery({
+  const apiTypeMap: Record<Exclude<NotificationType, 'all'>, string> = {
+    mentions: 'MENTION',
+    likes: 'LIKE',
+    follows: 'FOLLOW',
+    messages: 'MESSAGE',
+    projects: 'PROJECT_INVITE',
+  };
+
+  const apiType = filter === 'all' ? '' : `?type=${apiTypeMap[filter]}`;
+
+  const { data: notifications, isLoading, isError } = useQuery({
     queryKey: ['notifications', filter],
-    queryFn: () => apiClient.get(`/notifications${filter !== 'all' ? `?type=${filter}` : ''}`),
+    queryFn: () => apiClient.get(`/notifications${apiType}`),
   });
 
   const markAsReadMutation = useMutation({
@@ -50,7 +57,7 @@ export default function NotificationsPage() {
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiClient.patch('/notifications/read-all'),
+    mutationFn: () => apiClient.post('/notifications/read-all'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -67,14 +74,10 @@ export default function NotificationsPage() {
         return UserPlus;
       case 'MENTION':
         return AtSign;
-      case 'PROJECT_STAR':
+      case 'PROJECT_INVITE':
         return Star;
-      case 'PROJECT_FORK':
-        return GitFork;
-      case 'HACKATHON':
-        return Trophy;
-      case 'JOB':
-        return Briefcase;
+      case 'MESSAGE':
+        return MessageSquare;
       default:
         return Bell;
     }
@@ -91,67 +94,15 @@ export default function NotificationsPage() {
         return 'text-purple-500 bg-purple-500/10';
       case 'MENTION':
         return 'text-yellow-500 bg-yellow-500/10';
-      case 'PROJECT_STAR':
+      case 'PROJECT_INVITE':
         return 'text-amber-500 bg-amber-500/10';
       default:
         return 'text-primary bg-primary/10';
     }
   };
 
-  // Sample data for demo
-  const sampleNotifications = [
-    {
-      id: '1',
-      type: 'LIKE',
-      message: 'John Doe liked your post about React hooks',
-      read: false,
-      createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-      link: '/posts/1',
-      actor: { username: 'johndoe', displayName: 'John Doe' },
-    },
-    {
-      id: '2',
-      type: 'FOLLOW',
-      message: 'Sarah Smith started following you',
-      read: false,
-      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      link: '/profile/sarahsmith',
-      actor: { username: 'sarahsmith', displayName: 'Sarah Smith' },
-    },
-    {
-      id: '3',
-      type: 'COMMENT',
-      message: 'Mike Johnson commented on your project',
-      read: true,
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      link: '/projects/my-project',
-      actor: { username: 'mikej', displayName: 'Mike Johnson' },
-    },
-    {
-      id: '4',
-      type: 'MENTION',
-      message: 'You were mentioned in a discussion about TypeScript',
-      read: true,
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-      link: '/posts/2',
-      actor: { username: 'alexdev', displayName: 'Alex Developer' },
-    },
-    {
-      id: '5',
-      type: 'PROJECT_STAR',
-      message: 'Your project "DevConnect" received a new star',
-      read: true,
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      link: '/projects/devconnect',
-      actor: { username: 'newuser', displayName: 'New User' },
-    },
-  ];
-
-  const displayNotifications = notifications?.data?.length > 0 
-    ? notifications.data 
-    : sampleNotifications;
-
-  const unreadCount = displayNotifications.filter((n: any) => !n.read).length;
+  const displayNotifications = Array.isArray(notifications) ? notifications : [];
+  const unreadCount = displayNotifications.filter((n: any) => !n.isRead).length;
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -164,7 +115,7 @@ export default function NotificationsPage() {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <Button
               variant="outline"
@@ -183,7 +134,6 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {notificationTypes.map((type) => {
           const Icon = type.icon;
@@ -201,7 +151,6 @@ export default function NotificationsPage() {
         })}
       </div>
 
-      {/* Notifications List */}
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -216,44 +165,51 @@ export default function NotificationsPage() {
                 </div>
               ))}
             </div>
+          ) : isError ? (
+            <div className="p-10 text-center text-red-500">
+              Failed to load notifications.
+            </div>
           ) : displayNotifications.length > 0 ? (
             <div className="divide-y">
               {displayNotifications.map((notification: any) => {
                 const Icon = getNotificationIcon(notification.type);
                 const colorClass = getNotificationColor(notification.type);
+                const isRead = Boolean(notification.isRead);
 
                 return (
                   <Link
                     key={notification.id}
-                    href={notification.link || '#'}
+                    href={notification.actionUrl || '#'}
                     className={cn(
-                      "flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors",
-                      !notification.read && "bg-primary/5"
+                      'flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors',
+                      !isRead && 'bg-primary/5'
                     )}
                     onClick={() => {
-                      if (!notification.read) {
+                      if (!isRead) {
                         markAsReadMutation.mutate(notification.id);
                       }
                     }}
                   >
-                    <div className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                      colorClass
-                    )}>
+                    <div
+                      className={cn(
+                        'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                        colorClass
+                      )}
+                    >
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm",
-                        !notification.read && "font-medium"
-                      )}>
+                      <p className={cn('text-sm', !isRead && 'font-medium')}>
+                        {notification.title ? `${notification.title}: ` : ''}
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatRelativeTime(notification.createdAt)}
                       </p>
                     </div>
-                    {!notification.read && (
+                    {isRead ? (
+                      <Check className="h-4 w-4 text-muted-foreground mt-2" />
+                    ) : (
                       <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
                     )}
                   </Link>
@@ -265,7 +221,7 @@ export default function NotificationsPage() {
               <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-medium mb-2">No notifications yet</h3>
               <p className="text-muted-foreground">
-                When you get notifications, they'll show up here
+                When you get notifications, they&apos;ll show up here.
               </p>
             </div>
           )}

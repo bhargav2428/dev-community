@@ -73,9 +73,9 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Verification token is required'),
 });
 
-// Refresh token schema
+// Refresh token schema (optional since it can come from cookies)
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
+  refreshToken: z.string().optional(),
 });
 
 // Two-factor authentication schemas

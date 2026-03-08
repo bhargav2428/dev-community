@@ -35,53 +35,26 @@ export default function HackathonsPage() {
     },
   });
 
-  // Sample hackathons for demo
-  const sampleHackathons = [
-    {
-      id: '1',
-      name: 'AI Innovation Challenge 2026',
-      description: 'Build the next generation of AI-powered applications. Compete with developers worldwide for prizes worth $50,000.',
-      startDate: '2026-04-15',
-      endDate: '2026-04-17',
-      location: 'Virtual',
-      prizePool: 50000,
-      participants: 1250,
-      maxTeamSize: 4,
-      tags: ['AI', 'Machine Learning', 'LLM'],
-      status: 'upcoming',
-      organizer: 'TechCorp',
-    },
-    {
-      id: '2',
-      name: 'Web3 Builders Hackathon',
-      description: 'Create decentralized applications on blockchain. Focus on DeFi, NFTs, and Web3 infrastructure.',
-      startDate: '2026-03-20',
-      endDate: '2026-03-22',
-      location: 'San Francisco, CA',
-      prizePool: 75000,
-      participants: 800,
-      maxTeamSize: 5,
-      tags: ['Web3', 'Blockchain', 'DeFi'],
-      status: 'upcoming',
-      organizer: 'CryptoLabs',
-    },
-    {
-      id: '3',
-      name: 'Climate Tech Hack',
-      description: 'Build solutions to fight climate change. Focus on sustainability, clean energy, and environmental monitoring.',
-      startDate: '2026-05-01',
-      endDate: '2026-05-03',
-      location: 'Virtual',
-      prizePool: 30000,
-      participants: 600,
-      maxTeamSize: 4,
-      tags: ['CleanTech', 'Sustainability', 'IoT'],
-      status: 'upcoming',
-      organizer: 'GreenTech Foundation',
-    },
-  ];
+  // UI states
+  if (isLoading) {
+    return (
+      <main className="container mx-auto py-12">
+        <h1 className="text-3xl font-bold mb-4">Hackathons</h1>
+        <p>Loading hackathons...</p>
+      </main>
+    );
+  }
 
-  const displayHackathons = (hackathons?.data?.length ?? 0) > 0 ? hackathons?.data ?? sampleHackathons : sampleHackathons;
+  if (!hackathons || !hackathons.data || hackathons.data.length === 0) {
+    return (
+      <main className="container mx-auto py-12">
+        <h1 className="text-3xl font-bold mb-4">Hackathons</h1>
+        <p>No hackathons found.</p>
+      </main>
+    );
+  }
+
+  const displayHackathons = hackathons.data;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

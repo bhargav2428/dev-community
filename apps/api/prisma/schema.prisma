@@ -91,6 +91,7 @@ model User {
   activities        Activity[]
   reports           Report[]        @relation("Reporter")
   reportedContent   Report[]        @relation("ReportedUser")
+  adminActions      AdminLog[]      @relation("AdminActions")
   blockedUsers      Block[]         @relation("Blocker")
   blockedBy         Block[]         @relation("Blocked")
   refreshTokens     RefreshToken[]
@@ -315,6 +316,7 @@ model Project {
   // Settings
   isOpenSource    Boolean   @default(false)
   isRecruiting    Boolean   @default(false)
+  isFeatured      Boolean   @default(false)
   maxTeamSize     Int?
   
   // Timestamps
@@ -333,6 +335,16 @@ model Project {
   invitations     ProjectInvitation[]
   contributions   Contribution[]
   buildUpdates    BuildInPublic[]
+
+  // Project starring
+  projectStars    ProjectStar[]
+// PROJECT STARRING
+model ProjectStar {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   // store user ObjectId as string
+  projectId String   // store project ObjectId as string
+  createdAt DateTime @default(now())
+}
 }
 
 model ProjectMember {
@@ -454,6 +466,7 @@ model Post {
   // Settings
   visibility    PostVisibility @default(PUBLIC)
   isPinned      Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
   
   // Moderation
   isApproved    Boolean   @default(true)
@@ -848,6 +861,7 @@ model Hackathon {
   
   // Status
   status          HackathonStatus @default(UPCOMING)
+  isFeatured      Boolean   @default(false)
   
   // Settings
   maxParticipants Int?
@@ -860,6 +874,7 @@ model Hackathon {
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 }
 
 model HackathonParticipant {
@@ -924,6 +939,7 @@ model Job {
   
   // Status
   status          JobStatus @default(ACTIVE)
+  isFeatured      Boolean   @default(false)
   
   // Metrics
   viewsCount      Int       @default(0)
@@ -933,6 +949,7 @@ model Job {
   expiresAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
   
   // Relations
   skills          JobSkill[]
@@ -1069,6 +1086,23 @@ model Report {
   resolution    String?
   
   createdAt     DateTime  @default(now())
+}
+
+// Admin action log
+model AdminLog {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  adminId       String    @db.ObjectId
+  admin         User      @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+  
+  action        String    // BAN_USER, UNBAN_USER, CHANGE_ROLE, DELETE_POST, etc.
+  targetType    String    // USER, POST, PROJECT, etc.
+  targetId      String
+  details       Json?
+  
+  createdAt     DateTime  @default(now())
+  
+  @@index([adminId])
+  @@index([createdAt])
 }
 
 // ============================================

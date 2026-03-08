@@ -181,12 +181,34 @@ class UserService {
    * Add skill to user
    */
   async addSkill(userId: string, data: AddSkillInput) {
+    // Determine skill ID - either provided or look up by name
+    let skillId = data.skillId;
+    
+    if (!skillId && data.skillName) {
+      // Find or create skill by name
+      let skill = await prisma.skill.findFirst({
+        where: { name: { equals: data.skillName, mode: 'insensitive' } },
+      });
+      
+      if (!skill) {
+        const slug = data.skillName!.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        skill = await prisma.skill.create({
+          data: { name: data.skillName!, slug, category: 'OTHER' },
+        });
+      }
+      skillId = skill.id;
+    }
+    
+    if (!skillId) {
+      throw new Error('Either skillId or skillName is required');
+    }
+    
     // Check if skill already exists
     const existing = await prisma.userSkill.findUnique({
       where: {
         userId_skillId: {
           userId,
-          skillId: data.skillId,
+          skillId: skillId,
         },
       },
     });
@@ -198,7 +220,7 @@ class UserService {
     const userSkill = await prisma.userSkill.create({
       data: {
         userId,
-        skillId: data.skillId,
+        skillId: skillId,
         level: data.level,
         yearsOfExp: data.yearsOfExp,
         isPrimary: data.isPrimary,

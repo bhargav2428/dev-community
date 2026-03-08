@@ -158,6 +158,11 @@ export const requireRole = (...roles: UserRole[]) => {
 export const requireAdmin = requireRole('ADMIN', 'SUPER_ADMIN');
 
 /**
+ * Check if user is super admin only
+ */
+export const requireSuperAdmin = requireRole('SUPER_ADMIN');
+
+/**
  * Check if user is moderator or above
  */
 export const requireModerator = requireRole('MODERATOR', 'ADMIN', 'SUPER_ADMIN');

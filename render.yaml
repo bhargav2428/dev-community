@@ -7,7 +7,7 @@ services:
     env: node
     region: ohio
     plan: free
-    buildCommand: cd apps/api && npm install && npm run build
+    buildCommand: cd apps/api && npm install && npx prisma generate && npm run build
     startCommand: cd apps/api && npm start
     healthCheckPath: /health
     envVars:
@@ -17,25 +17,29 @@ services:
         value: 4000
       - key: DATABASE_URL
         sync: false
+      - key: REDIS_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      - key: GROQ_API_KEY
-        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
       - key: CLIENT_URL
         sync: false
+      - key: API_URL
+        sync: false
       - key: ENABLE_REDIS
-        value: false
-      - key: ENABLE_OAUTH_GOOGLE
-        value: false
-      - key: ENABLE_OAUTH_GITHUB
-        value: false
+        value: "true"
+      - key: ENABLE_OAUTH
+        value: "false"
       - key: ENABLE_EMAIL
-        value: false
-      - key: ENABLE_AWS_S3
-        value: false
+        value: "false"
+      - key: ENABLE_S3
+        value: "false"
       - key: ENABLE_OPENAI
-        value: true
-      - key: ENABLE_ELASTICSEARCH
-        value: false
+        value: "false"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "100"

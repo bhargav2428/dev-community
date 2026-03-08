@@ -46,17 +46,33 @@ declare module 'next-auth/jwt' {
 
 async function refreshAccessToken(token: any) {
   try {
+    // If username is missing from token, force re-login
+    if (!token.username) {
+      console.error('Username missing from token, forcing re-login');
+      return {
+        ...token,
+        error: 'RefreshAccessTokenError',
+      };
+    }
+
     const response = await axios.post(`${API_URL}/auth/refresh`, {
       refreshToken: token.refreshToken,
     });
 
-    const { accessToken, refreshToken, expiresIn } = response.data.data;
+    const { accessToken, refreshToken, expiresIn, user } = response.data.data;
 
     return {
       ...token,
       accessToken,
       refreshToken: refreshToken ?? token.refreshToken,
       accessTokenExpires: Date.now() + expiresIn * 1000,
+      // Update user data if returned from API
+      ...(user && {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      }),
     };
   } catch (error) {
     console.error('Error refreshing access token:', error);

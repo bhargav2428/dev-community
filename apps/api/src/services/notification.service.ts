@@ -35,6 +35,17 @@ class NotificationService {
         },
       });
 
+      // Enqueue notification job
+      const { notificationQueue } = await import('./queue.js');
+      await notificationQueue.add('send', {
+        userId: data.userId,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        link: data.link,
+        senderId: data.senderId,
+      });
+
       logger.info(`Notification created for user ${data.userId}: ${data.type}`);
       return notification;
     } catch (error) {

@@ -3,6 +3,9 @@
 
 import { z } from 'zod';
 
+// MongoDB ObjectId validation (24-character hex string)
+const objectIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ID format');
+
 // Create project schema
 export const createProjectSchema = z.object({
   name: z.string().min(2).max(100),
@@ -16,7 +19,9 @@ export const createProjectSchema = z.object({
   isOpenSource: z.boolean().default(false),
   isRecruiting: z.boolean().default(false),
   maxTeamSize: z.number().min(1).max(100).optional(),
-  skills: z.array(z.string().cuid()).max(20).optional(),
+  skills: z.array(objectIdSchema).max(20).optional(),
+  techStack: z.array(z.string().max(50)).max(20).optional(),
+  tags: z.array(z.string().max(30)).max(10).optional(),
 });
 
 // Update project schema
@@ -24,14 +29,14 @@ export const updateProjectSchema = createProjectSchema.partial();
 
 // Add team member schema
 export const addTeamMemberSchema = z.object({
-  userId: z.string().cuid(),
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+  userId: objectIdSchema,
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
   title: z.string().max(100).optional(),
 });
 
 // Update team member schema
 export const updateTeamMemberSchema = z.object({
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']).optional(),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).optional(),
   title: z.string().max(100).optional(),
 });
 
@@ -41,9 +46,9 @@ export const createTaskSchema = z.object({
   description: z.string().max(5000).optional(),
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED']).default('TODO'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  assigneeId: z.string().cuid().optional(),
+  assigneeId: objectIdSchema.optional(),
   dueDate: z.string().datetime().optional(),
-  milestoneId: z.string().cuid().optional(),
+  milestoneId: objectIdSchema.optional(),
   labels: z.array(z.string().max(50)).max(10).optional(),
 });
 
@@ -81,8 +86,8 @@ export const sendChannelMessageSchema = z.object({
 // Project invitation schema
 export const createInvitationSchema = z.object({
   email: z.string().email().optional(),
-  userId: z.string().cuid().optional(),
-  role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
+  userId: objectIdSchema.optional(),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
   message: z.string().max(500).optional(),
 }).refine((data) => data.email || data.userId, {
   message: 'Either email or userId is required',

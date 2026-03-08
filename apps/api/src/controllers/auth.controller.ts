@@ -34,6 +34,7 @@ export const register = asyncHandler(
     sendCreated(res, {
       user: result.user,
       accessToken: result.tokens.accessToken,
+      refreshToken: result.tokens.refreshToken,
       expiresIn: result.tokens.expiresIn,
     }, 'Registration successful');
   }
@@ -66,6 +67,7 @@ export const login = asyncHandler(
     return sendSuccess(res, {
       user: result.user,
       accessToken: result.tokens.accessToken,
+      refreshToken: result.tokens.refreshToken,
       expiresIn: result.tokens.expiresIn,
     }, 'Login successful');
   }
@@ -98,10 +100,17 @@ export const refreshToken = asyncHandler(
   async (req: Request<object, object, RefreshTokenInput>, res: Response) => {
     const token = req.body.refreshToken || req.cookies.refreshToken;
     
-    const tokens = await authService.refreshToken(token);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Refresh token is required' }
+      });
+    }
+    
+    const result = await authService.refreshToken(token);
 
     // Update refresh token cookie
-    res.cookie('refreshToken', tokens.refreshToken, {
+    res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -109,8 +118,10 @@ export const refreshToken = asyncHandler(
     });
 
     sendSuccess(res, {
-      accessToken: tokens.accessToken,
-      expiresIn: tokens.expiresIn,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+      user: result.user,
     });
   }
 );

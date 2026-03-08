@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   Moon,
   Sun,
   ChevronDown,
+  Shield,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/lib/socket-provider';
@@ -40,16 +41,47 @@ const navigation = [
   { name: 'Messages', href: '/messages', icon: MessageSquare },
 ];
 
+const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR'];
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
   const { unreadCount } = useNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Handle session errors (e.g., token refresh failure)
+  useEffect(() => {
+    if ((session as any)?.error === 'RefreshAccessTokenError') {
+      signOut({ callbackUrl: '/login' });
+    }
+  }, [session]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Don't render dashboard if not authenticated
+  if (status === 'unauthenticated') {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,6 +141,26 @@ export default function DashboardLayout({
                 </Link>
               );
             })}
+
+            {/* Admin link - only shown for admin/moderator roles */}
+            {session?.user?.role && adminRoles.includes(session.user.role) && (
+              <>
+                <div className="my-2 border-t" />
+                <Link
+                  href="/admin"
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    pathname === '/admin'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <Shield className="h-5 w-5" />
+                  Admin Panel
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Bottom actions */}
@@ -188,9 +240,9 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2 pl-2 border-l">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-medium">{session?.user?.name}</p>
-                <p className="text-xs text-muted-foreground">@{session?.user?.username}</p>
+                <p className="text-xs text-muted-foreground">@{session?.user?.username || 'user'}</p>
               </div>
-              <Link href={`/profile/${session?.user?.username}`}>
+              <Link href={session?.user?.username ? `/profile/${session.user.username}` : '/settings'}>
                 <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
                   {session?.user?.name?.[0]?.toUpperCase() || '?'}
                 </div>

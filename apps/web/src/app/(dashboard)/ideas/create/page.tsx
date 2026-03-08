@@ -1,5 +1,6 @@
 'use client';
 
+// Create idea form - aligned with API schema
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
@@ -9,82 +10,63 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
 import {
   Lightbulb,
   ArrowLeft,
   Send,
-  X,
   Target,
   Users,
   DollarSign,
   AlertCircle,
+  Crosshair,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-const categories = [
-  'SaaS',
-  'Developer Tools',
-  'AI/ML',
-  'Web3/Crypto',
-  'Mobile Apps',
-  'E-commerce',
-  'Education',
-  'Health & Fitness',
-  'Productivity',
-  'Social Media',
-  'Gaming',
-  'Finance',
-  'Other',
-];
 
 export default function CreateIdeaPage() {
   const router = useRouter();
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [problem, setProblem] = useState('');
   const [solution, setSolution] = useState('');
-  const [targetAudience, setTargetAudience] = useState('');
-  const [monetization, setMonetization] = useState('');
-  const [category, setCategory] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
-  const [lookingForTeam, setLookingForTeam] = useState(false);
+  const [description, setDescription] = useState('');
+  const [targetMarket, setTargetMarket] = useState('');
+  const [businessModel, setBusinessModel] = useState('');
+  const [competitors, setCompetitors] = useState('');
+  const [isLookingForCofounder, setIsLookingForCofounder] = useState(true);
 
   const createIdeaMutation = useMutation({
     mutationFn: (data: any) => apiClient.post('/ideas', data),
-    onSuccess: (data) => {
-      router.push(`/ideas`);
+    onSuccess: () => {
+      toast.success({
+        title: 'Idea posted!',
+        description: 'Your startup idea has been shared with the community.',
+      });
+      router.push('/ideas');
+    },
+    onError: (error: any) => {
+      toast.error({
+        title: 'Failed to post idea',
+        description: error.response?.data?.message || 'Something went wrong',
+      });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) return;
+    if (!title.trim() || !problem.trim() || !solution.trim()) return;
 
     createIdeaMutation.mutate({
       title,
-      description,
       problem,
       solution,
-      targetAudience,
-      monetization,
-      category,
-      tags,
-      lookingForTeam,
+      description: description || undefined,
+      targetMarket: targetMarket || undefined,
+      businessModel: businessModel || undefined,
+      competitors: competitors || undefined,
+      isLookingForCofounder,
     });
   };
 
-  const addTag = (tag: string) => {
-    const cleanTag = tag.trim().toLowerCase().replace(/^#/, '');
-    if (cleanTag && !tags.includes(cleanTag) && tags.length < 5) {
-      setTags([...tags, cleanTag]);
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag));
-  };
+  const isValid = title.trim().length >= 3 && problem.trim().length >= 10 && solution.trim().length >= 10;
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
@@ -124,43 +106,8 @@ export default function CreateIdeaPage() {
                 placeholder="Give your idea a catchy name"
                 maxLength={100}
               />
-            </div>
-
-            {/* Category */}
-            <div className="space-y-2">
-              <Label>Category *</Label>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategory(cat)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-sm border transition-colors",
-                      category === cat
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "hover:bg-muted border-border"
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Brief Description *</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your idea in 2-3 sentences (this will be shown in the idea card)"
-                rows={3}
-                maxLength={300}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {description.length}/300
+              <p className="text-xs text-muted-foreground">
+                Min 3 characters
               </p>
             </div>
 
@@ -168,7 +115,7 @@ export default function CreateIdeaPage() {
             <div className="space-y-2">
               <Label htmlFor="problem" className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
-                What problem does it solve?
+                What problem does it solve? *
               </Label>
               <Textarea
                 id="problem"
@@ -176,14 +123,18 @@ export default function CreateIdeaPage() {
                 onChange={(e) => setProblem(e.target.value)}
                 placeholder="Describe the pain point or problem your idea addresses..."
                 rows={3}
+                maxLength={2000}
               />
+              <p className="text-xs text-muted-foreground">
+                {problem.length}/2000 (min 10 characters)
+              </p>
             </div>
 
             {/* Solution */}
             <div className="space-y-2">
               <Label htmlFor="solution" className="flex items-center gap-2">
                 <Target className="h-4 w-4" />
-                Your Proposed Solution
+                Your Proposed Solution *
               </Label>
               <Textarea
                 id="solution"
@@ -191,91 +142,84 @@ export default function CreateIdeaPage() {
                 onChange={(e) => setSolution(e.target.value)}
                 placeholder="How would your idea solve this problem?"
                 rows={3}
+                maxLength={2000}
               />
+              <p className="text-xs text-muted-foreground">
+                {solution.length}/2000 (min 10 characters)
+              </p>
             </div>
 
-            {/* Target Audience */}
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="audience" className="flex items-center gap-2">
+              <Label htmlFor="description">Brief Description (optional)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add any additional context about your idea..."
+                rows={2}
+                maxLength={1000}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {description.length}/1000
+              </p>
+            </div>
+
+            {/* Target Market */}
+            <div className="space-y-2">
+              <Label htmlFor="targetMarket" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Target Audience
+                Target Market (optional)
               </Label>
               <Textarea
-                id="audience"
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value)}
+                id="targetMarket"
+                value={targetMarket}
+                onChange={(e) => setTargetMarket(e.target.value)}
                 placeholder="Who would use this? Be specific about your target users..."
                 rows={2}
+                maxLength={1000}
               />
             </div>
 
-            {/* Monetization */}
+            {/* Business Model */}
             <div className="space-y-2">
-              <Label htmlFor="monetization" className="flex items-center gap-2">
+              <Label htmlFor="businessModel" className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
-                Monetization Strategy (optional)
+                Business Model (optional)
               </Label>
               <Textarea
-                id="monetization"
-                value={monetization}
-                onChange={(e) => setMonetization(e.target.value)}
+                id="businessModel"
+                value={businessModel}
+                onChange={(e) => setBusinessModel(e.target.value)}
                 placeholder="How could this idea make money? (freemium, subscription, ads, etc.)"
                 rows={2}
+                maxLength={1000}
               />
             </div>
 
-            {/* Tags */}
+            {/* Competitors */}
             <div className="space-y-2">
-              <Label>Tags (up to 5)</Label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
-                  >
-                    #{tag}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="hover:text-primary/70"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {tags.length < 5 && (
-                <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    placeholder="Add relevant tags..."
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag(tagInput);
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => addTag(tagInput)}
-                    disabled={!tagInput.trim()}
-                  >
-                    Add
-                  </Button>
-                </div>
-              )}
+              <Label htmlFor="competitors" className="flex items-center gap-2">
+                <Crosshair className="h-4 w-4" />
+                Competitors (optional)
+              </Label>
+              <Textarea
+                id="competitors"
+                value={competitors}
+                onChange={(e) => setCompetitors(e.target.value)}
+                placeholder="Who are the existing players in this space? How is your idea different?"
+                rows={2}
+                maxLength={1000}
+              />
             </div>
 
-            {/* Looking for Team */}
+            {/* Looking for Co-founder */}
             <div className="border rounded-lg p-4">
               <label className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-3">
                   <Users className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">Looking for co-founders/team?</p>
+                    <p className="font-medium">Looking for co-founders?</p>
                     <p className="text-sm text-muted-foreground">
                       Enable this if you want others to join you in building this
                     </p>
@@ -283,8 +227,8 @@ export default function CreateIdeaPage() {
                 </div>
                 <input
                   type="checkbox"
-                  checked={lookingForTeam}
-                  onChange={(e) => setLookingForTeam(e.target.checked)}
+                  checked={isLookingForCofounder}
+                  onChange={(e) => setIsLookingForCofounder(e.target.checked)}
                   className="h-5 w-5 rounded border-gray-300"
                 />
               </label>
@@ -301,7 +245,7 @@ export default function CreateIdeaPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={!title.trim() || !description.trim() || !category || createIdeaMutation.isPending}
+                disabled={!isValid || createIdeaMutation.isPending}
               >
                 <Send className="h-4 w-4 mr-2" />
                 {createIdeaMutation.isPending ? 'Posting...' : 'Post Idea'}

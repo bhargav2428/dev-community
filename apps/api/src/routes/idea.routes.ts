@@ -1,4 +1,4 @@
-// Ideas Routes
+// Ideas Routes - Updated schema aligned with Prisma model
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { sendSuccess, sendCreated, sendPaginated, sendNoContent } from '../utils/response.js';
@@ -9,17 +9,27 @@ import { z } from 'zod';
 
 const router = Router();
 
-// Validation schemas
+// Helper to generate slug from title
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50) + '-' + Date.now().toString(36);
+}
+
+// Validation schemas - aligned with Prisma StartupIdea model
 const createIdeaSchema = z.object({
   title: z.string().min(3).max(100),
-  description: z.string().min(10).max(500),
-  problem: z.string().max(2000).optional(),
-  solution: z.string().max(2000).optional(),
-  targetAudience: z.string().max(1000).optional(),
-  monetization: z.string().max(1000).optional(),
-  category: z.string().optional().default('Other'),
-  tags: z.array(z.string()).max(5).optional(),
-  lookingForTeam: z.boolean().default(false),
+  problem: z.string().min(10).max(2000),
+  solution: z.string().min(10).max(2000),
+  description: z.string().max(1000).optional(),
+  targetMarket: z.string().max(1000).optional(),
+  businessModel: z.string().max(1000).optional(),
+  competitors: z.string().max(1000).optional(),
+  isLookingForCofounder: z.boolean().default(true),
+  equity: z.string().max(100).optional(),
+  investment: z.string().max(100).optional(),
 });
 
 const updateIdeaSchema = createIdeaSchema.partial();
@@ -32,16 +42,16 @@ router.get(
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const sort = (req.query.sort as string) || 'createdAt';
-    const category = req.query.category as string;
-    const lookingForTeam = req.query.lookingForTeam === 'true';
+    const isLookingForCofounder = req.query.lookingForCofounder === 'true';
 
-    const where: any = {};
-    if (category) where.category = category;
-    if (req.query.lookingForTeam) where.lookingForTeam = lookingForTeam;
+    const where: any = { deletedAt: null };
+    if (req.query.lookingForCofounder) where.isLookingForCofounder = isLookingForCofounder;
 
     const orderBy: any = {};
     if (sort === 'votes') {
-      orderBy.votes = { _count: 'desc' };
+      orderBy.votesCount = 'desc';
+    } else if (sort === 'newest') {
+      orderBy.createdAt = 'desc';
     } else {
       orderBy[sort] = 'desc';
     }
@@ -100,13 +110,15 @@ router.post(
   authenticate,
   validate(createIdeaSchema),
   asyncHandler(async (req, res) => {
-    const { tags, ...data } = req.body;
+    const { title, ...data } = req.body;
+    const slug = generateSlug(title);
 
     const idea = await prisma.startupIdea.create({
       data: {
+        title,
+        slug,
         ...data,
         authorId: req.user!.id,
-        tags: tags || [],
       },
       include: {
         author: {

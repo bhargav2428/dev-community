@@ -237,7 +237,7 @@ class MessagingService {
         content,
         type: messageType,
         replyToId,
-        attachments: attachments || undefined,
+        attachments: attachments ? JSON.parse(JSON.stringify(attachments)) : undefined,
       },
       include: {
         sender: {

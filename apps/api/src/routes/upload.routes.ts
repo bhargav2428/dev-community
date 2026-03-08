@@ -100,11 +100,13 @@ router.post(
     }
 
     const file = req.file;
-    const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 4000}`;
-    const fileUrl = `${baseUrl}/uploads/messages/${file.filename}`;
+    const { getStorageProvider } = await import('../services/storage/index.js');
+    const storageProvider = getStorageProvider();
+    const fileBuffer = await fs.promises.readFile(file.path);
+    const uploadedUrl = await storageProvider.upload(fileBuffer, file.filename);
 
     const attachment = {
-      url: fileUrl,
+      url: uploadedUrl,
       filename: file.originalname,
       fileType: file.mimetype,
       fileSize: file.size,

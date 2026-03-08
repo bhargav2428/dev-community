@@ -20,10 +20,8 @@ import {
   CheckCheck,
   Image as ImageIcon,
   Mic,
-  File,
+  File as FileIcon,
   X,
-  Play,
-  Pause,
   Download,
   StopCircle,
 } from 'lucide-react';
@@ -275,7 +273,7 @@ export default function MessagesPage() {
     
     return (
       <div key={index} className="relative flex items-center gap-2 px-3 py-2 bg-muted rounded-lg group">
-        <File className="h-4 w-4 text-primary" />
+        <FileIcon className="h-4 w-4 text-primary" />
         <div className="flex-1 min-w-0">
           <p className="text-sm truncate">{attachment.filename}</p>
           <p className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</p>
@@ -323,7 +321,7 @@ export default function MessagesPage() {
       return (
         <div className="space-y-2">
           {msgAttachments.map((att, i) => (
-            <AudioPlayer key={i} src={att.url} duration={att.duration} isMine={isMine} />
+            <audio key={i} src={att.url} controls className="w-full max-w-[320px]" />
           ))}
           {message.content && <p className="mt-2">{message.content}</p>}
         </div>
@@ -362,7 +360,7 @@ export default function MessagesPage() {
                 isMine ? "bg-primary-foreground/10" : "bg-background/50"
               )}
             >
-              <File className="h-8 w-8 text-primary" />
+              <FileIcon className="h-8 w-8 text-primary" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{att.filename}</p>
                 <p className={cn(

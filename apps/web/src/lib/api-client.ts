@@ -21,13 +21,21 @@ interface ApiErrorResponse {
 interface PaginatedResponse<T> {
   success: true;
   data: T[];
-  pagination: {
+  pagination?: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+  };
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
   };
   timestamp: string;
 }
@@ -71,28 +79,15 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Try to refresh token
-      try {
+      // Session is invalid - sign out and redirect to login
+      // NextAuth handles token refresh via its own callbacks
+      if (typeof window !== 'undefined') {
         const session = await getSession();
-        if (session?.refreshToken) {
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/v1/auth/refresh`,
-            { refreshToken: session.refreshToken }
-          );
-
-          const { accessToken } = response.data.data;
-          
-          // Update the request with new token
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          }
-
-          return api(originalRequest);
+        if (!session?.accessToken) {
+          // No valid session, redirect to login
+          await signOut({ redirect: true, callbackUrl: '/login' });
+          return Promise.reject(error);
         }
-      } catch (refreshError) {
-        // Refresh failed, sign out
-        await signOut({ redirect: true, callbackUrl: '/login' });
-        return Promise.reject(refreshError);
       }
     }
 
@@ -128,7 +123,12 @@ export const apiClient = {
   getPaginated: <T = any>(url: string, config?: AxiosRequestConfig) =>
     api.get<PaginatedResponse<T>>(url, config).then((res) => ({
       data: res.data.data,
-      pagination: res.data.pagination,
+      pagination: res.data.pagination || res.data.meta || {
+        page: 1,
+        limit: res.data.data?.length || 0,
+        total: res.data.data?.length || 0,
+        totalPages: 1,
+      },
     })),
 };
 

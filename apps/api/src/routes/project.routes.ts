@@ -149,12 +149,23 @@ router.delete(
 );
 
 // Star project
+// Star project (idempotent)
 router.post(
   '/:id/star',
   authenticate,
   asyncHandler(async (req, res) => {
-    await projectService.starProject(req.params.id, req.user!.id);
-    sendSuccess(res, null, 'Project starred');
+    const result = await projectService.starProject(req.params.id, req.user!.id);
+    sendSuccess(res, result, result?.alreadyStarred ? 'Already starred' : 'Project starred');
+  })
+);
+
+// Unstar project
+router.post(
+  '/:id/unstar',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const result = await projectService.unstarProject(req.params.id, req.user!.id);
+    sendSuccess(res, result, result?.alreadyUnstarred ? 'Already unstarred' : 'Project unstarred');
   })
 );
 

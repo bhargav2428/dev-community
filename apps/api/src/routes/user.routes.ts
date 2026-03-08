@@ -1,10 +1,12 @@
 // User Routes
 import { Router } from 'express';
 import { userService } from '../services/user.service.js';
+import { prisma } from '../lib/prisma.js';
 import { sendSuccess, sendPaginated } from '../utils/response.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
+import { NotFoundError } from '../utils/errors.js';
 import {
   updateProfileSchema,
   addSkillSchema,
@@ -14,6 +16,51 @@ import {
 } from '../schemas/user.schema.js';
 
 const router = Router();
+
+// Get current authenticated user
+router.get(
+  '/me',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatar: true,
+        bio: true,
+        role: true,
+        createdAt: true,
+        skills: { include: { skill: true } },
+        _count: {
+          select: {
+            posts: true,
+            projects: true,
+            followers: true,
+            following: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    sendSuccess(res, user);
+  })
+);
+
+// Update current authenticated user
+router.patch(
+  '/me',
+  authenticate,
+  validate(updateProfileSchema),
+  asyncHandler(async (req, res) => {
+    const user = await userService.updateProfile(req.user!.id, req.body);
+    sendSuccess(res, user, 'Profile updated');
+  })
+);
 
 // Search users
 router.get(
@@ -69,6 +116,101 @@ router.get(
   asyncHandler(async (req, res) => {
     const users = await userService.getSuggestedUsers(req.user!.id);
     sendSuccess(res, users);
+  })
+);
+
+// Get user's posts by username
+router.get(
+  '/:username/posts',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const { username } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: { authorId: user.id, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatar: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+        },
+      }),
+      prisma.post.count({ where: { authorId: user.id, deletedAt: null } }),
+    ]);
+
+    sendPaginated(res, posts, { page, limit, total });
+  })
+);
+
+// Get user's projects by username
+router.get(
+  '/:username/projects',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const { username } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
+        where: { ownerId: user.id },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          owner: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatar: true,
+            },
+          },
+          _count: {
+            select: {
+              members: true,
+            },
+          },
+        },
+      }),
+      prisma.project.count({ where: { ownerId: user.id } }),
+    ]);
+
+    sendPaginated(res, projects, { page, limit, total });
   })
 );
 

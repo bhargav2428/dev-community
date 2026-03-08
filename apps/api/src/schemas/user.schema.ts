@@ -3,6 +3,9 @@
 
 import { z } from 'zod';
 
+// Import objectIdSchema from common schema instead of redefining
+import { objectIdSchema } from './common.schema.js';
+
 // Update profile schema
 export const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
@@ -31,10 +34,13 @@ export const updateExtendedProfileSchema = z.object({
 
 // Add skill schema
 export const addSkillSchema = z.object({
-  skillId: z.string().cuid(),
+  skillId: objectIdSchema.optional(),
+  skillName: z.string().min(1).max(50).optional(),
   level: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT']).default('INTERMEDIATE'),
   yearsOfExp: z.number().min(0).max(50).optional(),
   isPrimary: z.boolean().default(false),
+}).refine((data) => data.skillId || data.skillName, {
+  message: 'Either skillId or skillName is required',
 });
 
 // Add experience schema
@@ -64,7 +70,29 @@ export const addEducationSchema = z.object({
 
 // Follow user schema
 export const followUserSchema = z.object({
-  userId: z.string().cuid(),
+  userId: objectIdSchema,
+});
+
+// Block user schema
+export const blockUserSchema = z.object({
+  userId: objectIdSchema,
+  reason: z.string().max(500).optional(),
+});
+
+// Update avatar/cover image schema
+export const updateUserImageSchema = z.object({
+  imageUrl: z.string().url(),
+  type: z.enum(['avatar', 'cover']),
+});
+
+// Update notification preferences schema
+export const updateNotificationPrefsSchema = z.object({
+  emailNotifications: z.boolean().optional(),
+  pushNotifications: z.boolean().optional(),
+  mentionNotifications: z.boolean().optional(),
+  followNotifications: z.boolean().optional(),
+  messageNotifications: z.boolean().optional(),
+  projectNotifications: z.boolean().optional(),
 });
 
 // Search users schema
@@ -84,4 +112,7 @@ export type AddSkillInput = z.infer<typeof addSkillSchema>;
 export type AddExperienceInput = z.infer<typeof addExperienceSchema>;
 export type AddEducationInput = z.infer<typeof addEducationSchema>;
 export type FollowUserInput = z.infer<typeof followUserSchema>;
+export type BlockUserInput = z.infer<typeof blockUserSchema>;
+export type UpdateUserImageInput = z.infer<typeof updateUserImageSchema>;
+export type UpdateNotificationPrefsInput = z.infer<typeof updateNotificationPrefsSchema>;
 export type SearchUsersInput = z.infer<typeof searchUsersSchema>;

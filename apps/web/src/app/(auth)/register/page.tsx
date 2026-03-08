@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api-client';
-import { Github, Mail, Eye, EyeOff, User, AtSign } from 'lucide-react';
+import { Github, Mail, Eye, EyeOff, User, AtSign, Loader2 } from 'lucide-react';
 
 const registerSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -41,10 +41,12 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<'github' | 'google' | null>(null);
 
+  // All hooks must be called before any conditional returns
   const {
     register,
     handleSubmit,
@@ -52,6 +54,34 @@ export default function RegisterPage() {
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace('/dashboard');
+    }
+  }, [status, session, router]);
+
+  // Show loading state while checking session
+  if (status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render register form if already authenticated
+  if (status === 'authenticated') {
+    return (
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);

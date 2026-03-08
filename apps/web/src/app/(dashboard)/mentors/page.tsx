@@ -68,7 +68,7 @@ export default function MentorsPage() {
     return true;
   });
 
-  const expertiseOptions = [...new Set(mentors.flatMap((m) => m.expertise))];
+  const expertiseOptions = Array.from(new Set(mentors.flatMap((m) => m.expertise)));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

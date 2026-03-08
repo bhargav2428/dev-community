@@ -33,6 +33,7 @@ import mentorRoutes from './routes/mentor.routes.js';
 import buildPublicRoutes from './routes/buildPublic.routes.js';
 import wrappedRoutes from './routes/wrapped.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
@@ -173,6 +174,7 @@ app.use(`${API_PREFIX}/mentors`, mentorRoutes);
 app.use(`${API_PREFIX}/build-public`, buildPublicRoutes);
 app.use(`${API_PREFIX}/wrapped`, wrappedRoutes);
 app.use(`${API_PREFIX}/upload`, uploadRoutes);
+app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

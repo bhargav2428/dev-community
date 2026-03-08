@@ -3,6 +3,9 @@
 
 import { z } from 'zod';
 
+// MongoDB ObjectId validation (24-character hex string)
+const objectIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid ID format');
+
 // Create post schema
 export const createPostSchema = z.object({
   content: z.string().min(1).max(5000),
@@ -12,7 +15,7 @@ export const createPostSchema = z.object({
   ]).default('TEXT'),
   images: z.array(z.string().url()).max(4).optional(),
   video: z.string().url().optional(),
-  projectId: z.string().cuid().optional(),
+  projectId: objectIdSchema.optional(),
   visibility: z.enum(['PUBLIC', 'CONNECTIONS_ONLY', 'PRIVATE']).default('PUBLIC'),
   tags: z.array(z.string().min(1).max(30)).max(5).optional(),
 });
@@ -26,7 +29,7 @@ export const updatePostSchema = z.object({
 // Create comment schema
 export const createCommentSchema = z.object({
   content: z.string().min(1).max(2000),
-  parentId: z.string().cuid().optional(),
+  parentId: objectIdSchema.optional(),
 });
 
 // Update comment schema

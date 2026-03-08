@@ -165,7 +165,7 @@ class AuthService {
   /**
    * Refresh access token
    */
-  async refreshToken(refreshToken: string): Promise<AuthTokens> {
+  async refreshToken(refreshToken: string): Promise<AuthTokens & { user: Omit<User, 'passwordHash' | 'twoFactorSecret'> }> {
     // Verify refresh token
     let payload: TokenPayload;
     try {
@@ -205,8 +205,12 @@ class AuthService {
       data: { isRevoked: true },
     });
 
-    // Generate new tokens
-    return this.generateTokens(user);
+    // Generate new tokens and return with user data
+    const tokens = await this.generateTokens(user);
+    return {
+      ...tokens,
+      user: excludeSensitiveFields(user),
+    };
   }
 
   /**

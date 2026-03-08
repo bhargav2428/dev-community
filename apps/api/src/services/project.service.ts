@@ -67,6 +67,7 @@ const projectSelect = {
       skill: true,
     },
   },
+  projectStars: true,
   _count: {
     select: {
       tasks: true,
@@ -77,6 +78,58 @@ const projectSelect = {
 };
 
 class ProjectService {
+    /**
+     * Star a project (idempotent, MongoDB)
+     */
+    async starProject(projectId: string, userId: string) {
+      // Check if already starred
+      const existing = await prisma.projectStar.findFirst({
+        where: { userId, projectId },
+      });
+      if (existing) {
+        return { alreadyStarred: true };
+      }
+      await prisma.projectStar.create({
+        data: { userId, projectId },
+      });
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { stars: { increment: 1 } },
+      });
+      return { alreadyStarred: false };
+    }
+
+    /**
+     * Unstar a project (idempotent, MongoDB)
+     */
+    async unstarProject(projectId: string, userId: string) {
+      const existing = await prisma.projectStar.findFirst({
+        where: { userId, projectId },
+      });
+      if (!existing) {
+        return { alreadyUnstarred: true };
+      }
+      await prisma.projectStar.delete({
+        where: { id: existing.id },
+      });
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { stars: { decrement: 1 } },
+      });
+      return { alreadyUnstarred: false };
+    }
+
+    /**
+     * Get starred projects for user
+     */
+    async getStarredProjects(userId: string, limit: number = 20) {
+      const stars = await prisma.projectStar.findMany({
+        where: { userId },
+        include: { project: true },
+        take: limit,
+      });
+      return stars.map((star) => star.project);
+    }
   /**
    * Create new project
    */
@@ -515,17 +568,7 @@ class ProjectService {
     return milestones;
   }
 
-  /**
-   * Star project
-   */
-  async starProject(projectId: string, _userId: string) {
-    // For now, just increment stars count
-    // TODO: Track individual stars with userId
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { stars: { increment: 1 } },
-    });
-  }
+    // ...existing code...
 
   /**
    * Create project invitation
@@ -727,6 +770,7 @@ class ProjectService {
    * Get trending projects
    */
   async getTrendingProjects(limit: number = 10) {
+    // Trending: order by number of stars (ProjectStar relation)
     const projects = await prisma.project.findMany({
       where: {
         deletedAt: null,
@@ -753,6 +797,7 @@ class ProjectService {
           include: { skill: true },
           take: 3,
         },
+        projectStars: true,
       },
       orderBy: [
         { stars: 'desc' },
@@ -760,7 +805,6 @@ class ProjectService {
       ],
       take: limit,
     });
-
     return projects;
   }
 

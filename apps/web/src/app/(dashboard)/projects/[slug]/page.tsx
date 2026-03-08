@@ -54,7 +54,7 @@ export default function ProjectDetailPage() {
   });
 
   const unstarMutation = useMutation({
-    mutationFn: () => apiClient.delete(`/projects/${slug}/star`),
+    mutationFn: () => apiClient.post(`/projects/${slug}/unstar`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', slug] });
     },
@@ -77,7 +77,8 @@ export default function ProjectDetailPage() {
   };
 
   const projectData = project?.data;
-  const isStarred = projectData?.isStarred;
+  // Determine if user has starred (from projectStars relation)
+  const isStarred = projectData?.projectStars?.some((star: any) => star.userId === session?.user?.id);
   const isOwner = session?.user?.id === projectData?.ownerId;
 
   if (isLoading) {

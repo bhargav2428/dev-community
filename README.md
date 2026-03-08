@@ -319,5 +319,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <p align="center">
   Made with ❤️ by the DevCommunity Team
 </p>
-#   d e v - c o m m u n i t y  
+#   d e v - c o m m u n i t y 
  
+ 
+
+
+
+
+
+
+
+
+🔴 SUPER ADMIN (full access to all features):
+   Email: superadmin@devconnect.com
+   Password: SuperAdmin@123
+
+🟠 ADMIN:
+   Email: admin@devconnect.com
+   Password: Admin@123
+
+🔵 MODERATOR:
+   Email: moderator@devconnect.com
+   Password: Moderator@123
