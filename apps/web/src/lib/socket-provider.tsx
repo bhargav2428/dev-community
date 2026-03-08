@@ -27,7 +27,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (socket?.connected) return;
     if (status !== 'authenticated' || !session?.accessToken) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    const inferredWsUrl = apiBaseUrl.replace(/\/api\/v1\/?$/, '');
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || inferredWsUrl;
     
     const newSocket = io(wsUrl, {
       auth: {

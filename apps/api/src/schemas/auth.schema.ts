@@ -78,6 +78,19 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().optional(),
 });
 
+// OAuth login schema
+export const oauthLoginSchema = z.object({
+  accessToken: z.string().optional(),
+  refreshToken: z.string().optional(),
+  profile: z.object({
+    id: z.union([z.string(), z.number()]).transform((value) => String(value)),
+    email: emailSchema,
+    name: z.string().optional(),
+    image: z.string().optional(),
+    username: z.string().optional(),
+  }),
+});
+
 // Two-factor authentication schemas
 export const enable2FASchema = z.object({
   password: z.string().min(1, 'Password is required'),
@@ -95,5 +108,6 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type OAuthLoginInput = z.infer<typeof oauthLoginSchema>;
 export type Enable2FAInput = z.infer<typeof enable2FASchema>;
 export type Verify2FAInput = z.infer<typeof verify2FASchema>;

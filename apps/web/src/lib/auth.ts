@@ -4,7 +4,7 @@ import GithubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 declare module 'next-auth' {
   interface Session {
@@ -83,9 +83,8 @@ async function refreshAccessToken(token: any) {
   }
 }
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
+const providers: NextAuthOptions['providers'] = [
+  CredentialsProvider({
       id: 'credentials',
       name: 'Credentials',
       credentials: {
@@ -121,24 +120,44 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+];
+
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  providers.push(
     GithubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
     }),
+  );
+}
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-  ],
+  );
+}
+
+export const authOptions: NextAuthOptions = {
+  providers,
   callbacks: {
     async signIn({ user, account, profile }) {
       // Handle OAuth sign in
       if (account?.provider === 'github' || account?.provider === 'google') {
+        const profileId = profile?.sub || (profile as any)?.id;
+        if (!profileId || !user.email) {
+          console.error('OAuth profile is missing required id/email');
+          return false;
+        }
+
         try {
           const response = await axios.post(`${API_URL}/auth/oauth/${account.provider}`, {
             accessToken: account.access_token,
+            refreshToken: account.refresh_token,
             profile: {
-              id: profile?.sub || (profile as any)?.id,
+              id: String(profileId),
               email: user.email,
               name: user.name,
               image: user.image,

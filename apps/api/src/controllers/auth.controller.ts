@@ -5,6 +5,7 @@ import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
+import { BadRequestError } from '../utils/errors.js';
 import type { 
   RegisterInput, 
   LoginInput, 
@@ -13,7 +14,9 @@ import type {
   ChangePasswordInput,
   VerifyEmailInput,
   RefreshTokenInput,
+  OAuthLoginInput,
 } from '../schemas/auth.schema.js';
+import type { OAuthProvider } from '@prisma/client';
 
 /**
  * Register new user
@@ -70,6 +73,52 @@ export const login = asyncHandler(
       refreshToken: result.tokens.refreshToken,
       expiresIn: result.tokens.expiresIn,
     }, 'Login successful');
+  }
+);
+
+/**
+ * OAuth login/register
+ * POST /api/auth/oauth/:provider
+ */
+export const oauthLogin = asyncHandler(
+  async (req: Request, res: Response) => {
+    const body = req.body as OAuthLoginInput;
+    const providerParam = req.params.provider?.toLowerCase();
+    const providerMap: Record<string, OAuthProvider> = {
+      google: 'GOOGLE',
+      github: 'GITHUB',
+    };
+
+    const provider = providerMap[providerParam];
+    if (!provider) {
+      throw new BadRequestError('Unsupported OAuth provider');
+    }
+
+    const result = await authService.oauthLogin(
+      provider,
+      body.profile.id,
+      {
+        email: body.profile.email,
+        name: body.profile.name,
+        avatar: body.profile.image,
+        accessToken: body.accessToken,
+        refreshToken: body.refreshToken,
+      }
+    );
+
+    res.cookie('refreshToken', result.tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    sendSuccess(res, {
+      user: result.user,
+      accessToken: result.tokens.accessToken,
+      refreshToken: result.tokens.refreshToken,
+      expiresIn: result.tokens.expiresIn,
+    }, 'OAuth login successful');
   }
 );
 

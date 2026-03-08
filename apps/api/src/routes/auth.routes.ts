@@ -12,6 +12,7 @@ import {
   verifyEmailSchema,
   refreshTokenSchema,
   changePasswordSchema,
+  oauthLoginSchema,
 } from '../schemas/auth.schema.js';
 
 const router = Router();
@@ -54,6 +55,13 @@ router.post(
 router.post(
   '/refresh',
   authController.refreshToken
+);
+
+router.post(
+  '/oauth/:provider',
+  authLimiter,
+  validate(oauthLoginSchema),
+  authController.oauthLogin
 );
 
 // Protected routes
