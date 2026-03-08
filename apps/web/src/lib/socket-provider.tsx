@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
+import { getPublicWsUrl } from '@/lib/env-utils';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -27,9 +28,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (socket?.connected) return;
     if (status !== 'authenticated' || !session?.accessToken) return;
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-    const inferredWsUrl = apiBaseUrl.replace(/\/api\/v1\/?$/, '');
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || inferredWsUrl;
+    const wsUrl = getPublicWsUrl();
     
     const newSocket = io(wsUrl, {
       auth: {

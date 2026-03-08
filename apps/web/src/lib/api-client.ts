@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
+import { getPublicApiUrl } from '@/lib/env-utils';
 
 // API response types
 interface ApiResponse<T = any> {
@@ -42,7 +43,7 @@ interface PaginatedResponse<T> {
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1',
+  baseURL: getPublicApiUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

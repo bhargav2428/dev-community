@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { getPublicApiUrl } from '@/lib/env-utils';
 import { 
   User, 
   MapPin, 
@@ -73,7 +74,7 @@ export default function OnboardingPage() {
   const onSubmit = async (data: OnboardingFormData) => {
     setIsLoading(true);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const API_URL = getPublicApiUrl();
       
       const response = await fetch(`${API_URL}/users/me/profile`, {
         method: 'PATCH',

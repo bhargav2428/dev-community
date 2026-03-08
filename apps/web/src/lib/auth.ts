@@ -3,8 +3,9 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GithubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import axios from 'axios';
+import { getPublicApiUrl } from '@/lib/env-utils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_URL = getPublicApiUrl();
 
 declare module 'next-auth' {
   interface Session {
