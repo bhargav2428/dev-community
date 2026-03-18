@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
-  Code2, 
   Users, 
   Rocket, 
   Sparkles, 
@@ -10,8 +9,10 @@ import {
   MessageSquare,
   Trophy,
   Briefcase,
-  Globe
+  Globe,
+  Code2
 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
@@ -20,8 +21,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <nav className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <Code2 className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold">DevCommunity</span>
+            <Image src="/icons/bfd-cube.svg" alt="BFD Logo" width={32} height={32} />
+            <span className="text-xl font-bold">BFD</span>
           </Link>
           <div className="hidden md:flex items-center space-x-6">
             <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -81,7 +82,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="text-sm text-muted-foreground mt-6">
-            Join 50,000+ developers already building on DevCommunity
+            Join 50,000+ developers already building on BFD
           </p>
         </div>
       </section>

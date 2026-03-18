@@ -1,4 +1,4 @@
-# DevConnect Deployment Guide
+curl -fsSL https://raw.githubusercontent.com/render-oss/cli/refs/heads/main/bin/install.sh | sh# DevConnect Deployment Guide
 
 Complete deployment guide for deploying DevConnect to production using **Vercel (Frontend) + Render (Backend)**.
 

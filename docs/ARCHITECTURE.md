@@ -163,7 +163,7 @@ User Request → API Gateway → AI Service → Fetch User Profile
 │ Layer 4: Authentication (JWT + OAuth 2.0)                      │
 │ Layer 5: Authorization (RBAC)                                  │
 │ Layer 6: Input Validation (Zod schemas)                        │
-│ Layer 7: SQL Injection Prevention (Prisma ORM)                 │
+│ Layer 7: Input Validation (handled in code)                    │
 │ Layer 8: XSS Protection (Content Security Policy)              │
 │ Layer 9: Data Encryption (AES-256, TLS 1.3)                    │
 └─────────────────────────────────────────────────────────────────┘
@@ -191,15 +191,14 @@ devconnect/
 │       │   ├── config/         # Configuration
 │       │   ├── controllers/    # Route handlers
 │       │   ├── middleware/     # Express middleware
-│       │   ├── models/         # Prisma models
+│       │   ├── models/         # (removed, now using MongoDB)
 │       │   ├── repositories/   # Data access layer
 │       │   ├── services/       # Business logic
 │       │   ├── routes/         # API routes
 │       │   ├── workers/        # Background jobs
 │       │   ├── websocket/      # Socket.io handlers
 │       │   └── utils/          # Helper functions
-│       └── prisma/
-│           └── schema.prisma
+│       └── (prisma/ removed)
 │
 ├── packages/
 │   ├── shared/                 # Shared types & utils
@@ -279,7 +278,7 @@ Code Push → GitHub Actions → Lint & Type Check → Unit Tests
 | **Frontend** | Next.js 14 | SSR, App Router, great DX |
 | **Backend** | Express.js | Flexibility, large ecosystem |
 | **Database** | PostgreSQL | ACID, JSON support, extensions |
-| **ORM** | Prisma | Type safety, migrations |
+| **Database** | MongoDB (native driver) | Flexible, scalable |
 | **Cache** | Redis | Speed, pub/sub, sessions |
 | **Search** | Elasticsearch | Full-text, fuzzy matching |
 | **Storage** | AWS S3 | Scalable, cost-effective |

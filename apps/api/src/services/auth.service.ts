@@ -7,22 +7,43 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import { redis, cache, cacheKeys } from '../lib/redis.js';
 import { config } from '../config/index.js';
-import { 
-  BadRequestError, 
-  ConflictError, 
-  NotFoundError, 
-  UnauthorizedError 
+import {
+  BadRequestError,
+  NotFoundError,
+  UnauthorizedError,
 } from '../utils/errors.js';
 import { emailService } from './email.service.js';
-import type { User, UserRole, OAuthProvider } from '@prisma/client';
 import type { RegisterInput, LoginInput } from '../schemas/auth.schema.js';
+
+// Minimal helper types for MongoDB-backed users
+type UserRole = string;
+type OAuthProvider = 'GOOGLE' | 'GITHUB' | string;
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  role?: UserRole;
+  passwordHash?: string;
+  deletedAt?: Date | null;
+  twoFactorEnabled?: boolean;
+  twoFactorSecret?: string | null;
+  emailVerified?: boolean;
+  isOnline?: boolean;
+  lastSeenAt?: Date | null;
+  displayName?: string;
+  avatar?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  [key: string]: any;
+}
 
 // Token types
 interface TokenPayload {
   userId: string;
   email: string;
   username: string;
-  role: UserRole;
+  role?: UserRole;
 }
 
 interface AuthTokens {
@@ -59,33 +80,38 @@ class AuthService {
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email }, { username }],
+        deletedAt: null,
       },
     });
 
     if (existingUser) {
       if (existingUser.email === email) {
-        throw new ConflictError('Email already registered');
+        throw new BadRequestError('Email already registered');
       }
-      throw new ConflictError('Username already taken');
+      throw new BadRequestError('Username already taken');
     }
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, this.SALT_ROUNDS);
 
-    // Create user with profile
-    const user = await prisma.user.create({
-      data: {
-        email,
-        username,
-        passwordHash,
-        firstName,
-        lastName,
-        displayName: firstName && lastName ? `${firstName} ${lastName}` : username,
-        profile: {
-          create: {},
-        },
-      },
-    });
+    // Create user
+    const newUser: User = {
+      id: crypto.randomUUID(),
+      email,
+      username,
+      passwordHash,
+      firstName,
+      lastName,
+      displayName: firstName && lastName ? `${firstName} ${lastName}` : username,
+      emailVerified: false,
+      role: 'USER',
+      isOnline: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      profile: {},
+    };
+
+    const createdUser = await prisma.user.create({ data: newUser });
 
     // Generate verification token
     const verificationToken = await this.createVerificationToken(
@@ -97,10 +123,10 @@ class AuthService {
     await emailService.sendVerificationEmail(email, verificationToken);
 
     // Generate auth tokens
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(createdUser);
 
     return {
-      user: excludeSensitiveFields(user),
+      user: excludeSensitiveFields(createdUser),
       tokens,
     };
   }
@@ -112,9 +138,7 @@ class AuthService {
     const { email, password } = data;
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = (await prisma.user.findFirst({ where: { email } })) as unknown as User | null;
 
     if (!user || !user.passwordHash) {
       throw new UnauthorizedError('Invalid credentials');
@@ -147,9 +171,10 @@ class AuthService {
     // Update last seen
     await prisma.user.update({
       where: { id: user.id },
-      data: { 
+      data: {
         lastSeenAt: new Date(),
         isOnline: true,
+        updatedAt: new Date(),
       },
     });
 
@@ -169,10 +194,7 @@ class AuthService {
     // Verify refresh token
     let payload: TokenPayload;
     try {
-      payload = jwt.verify(
-        refreshToken,
-        config.jwt.refreshSecret
-      ) as TokenPayload;
+      payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as TokenPayload;
     } catch {
       throw new UnauthorizedError('Invalid refresh token');
     }
@@ -191,17 +213,15 @@ class AuthService {
     }
 
     // Get user
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
+    const user = (await prisma.user.findFirst({ where: { id: payload.userId } })) as unknown as User | null;
 
     if (!user || user.deletedAt) {
       throw new UnauthorizedError('User not found');
     }
 
     // Revoke old refresh token
-    await prisma.refreshToken.update({
-      where: { id: storedToken.id },
+    await prisma.refreshToken.updateMany({
+      where: { token: refreshToken },
       data: { isRevoked: true },
     });
 
@@ -220,10 +240,7 @@ class AuthService {
     if (refreshToken) {
       // Revoke specific token
       await prisma.refreshToken.updateMany({
-        where: {
-          userId,
-          token: refreshToken,
-        },
+        where: { userId, token: refreshToken },
         data: { isRevoked: true },
       });
     } else {
@@ -237,7 +254,7 @@ class AuthService {
     // Update user status
     await prisma.user.update({
       where: { id: userId },
-      data: { isOnline: false },
+      data: { isOnline: false, updatedAt: new Date() },
     });
 
     // Clear user cache
@@ -267,43 +284,44 @@ class AuthService {
     }
 
     // Check if OAuth account exists
-    let oauthAccount = await prisma.oAuthAccount.findUnique({
+    const oauthAccount = await prisma.oauthAccount.findFirst({
       where: {
-        provider_providerAccountId: {
-          provider,
-          providerAccountId,
-        },
+        provider,
+        providerAccountId,
       },
-      include: { user: true },
     });
 
     let user: User;
 
     if (oauthAccount) {
       // Update tokens
-      await prisma.oAuthAccount.update({
-        where: { id: oauthAccount.id },
+      await prisma.oauthAccount.update({
+        where: { id: (oauthAccount as any).id ?? (oauthAccount as any)._id },
         data: {
           accessToken: profile.accessToken,
           refreshToken: profile.refreshToken,
+          updatedAt: new Date(),
         },
       });
-      user = oauthAccount.user;
+      user = (await prisma.user.findFirst({ where: { id: (oauthAccount as any).userId } })) as unknown as User | null;
+      if (!user) {
+        throw new NotFoundError('User linked to OAuth account not found');
+      }
     } else {
       // Check if user with email exists
-      const existingUser = await prisma.user.findUnique({
-        where: { email: profile.email },
-      });
+      const existingUser = (await prisma.user.findFirst({ where: { email: profile.email } })) as unknown as User | null;
 
       if (existingUser) {
         // Link OAuth to existing account
-        await prisma.oAuthAccount.create({
+        await prisma.oauthAccount.create({
           data: {
             userId: existingUser.id,
             provider,
             providerAccountId,
             accessToken: profile.accessToken,
             refreshToken: profile.refreshToken,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         });
         user = existingUser;
@@ -313,26 +331,35 @@ class AuthService {
           profile.name || profile.email.split('@')[0]
         );
 
-        user = await prisma.user.create({
+        const newUser: User = {
+          id: crypto.randomUUID(),
+          email: profile.email,
+          username,
+          displayName: profile.name,
+          avatar: profile.avatar,
+          emailVerified: true,
+          role: 'USER',
+          isOnline: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          profile: {},
+        };
+
+        await prisma.user.create({ data: newUser });
+        await prisma.oauthAccount.create({
           data: {
-            email: profile.email,
-            username,
-            displayName: profile.name,
-            avatar: profile.avatar,
-            emailVerified: true,
-            oauthAccounts: {
-              create: {
-                provider,
-                providerAccountId,
-                accessToken: profile.accessToken,
-                refreshToken: profile.refreshToken,
-              },
-            },
-            profile: {
-              create: {},
-            },
+            userId: newUser.id,
+            provider,
+            providerAccountId,
+            accessToken: profile.accessToken,
+            refreshToken: profile.refreshToken,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         });
+
+        user = newUser;
+        console.log('[OAuth] Created new user:', user.email, user.username, user.id);
       }
     }
 
@@ -349,9 +376,7 @@ class AuthService {
    * Request password reset
    */
   async forgotPassword(email: string): Promise<void> {
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = (await prisma.user.findFirst({ where: { email } })) as unknown as User | null;
 
     // Always return success to prevent email enumeration
     if (!user) return;
@@ -387,20 +412,18 @@ class AuthService {
 
     // Update password
     await prisma.user.update({
-      where: { email: verificationToken.email },
-      data: { passwordHash },
+      where: { email: (verificationToken as any).email },
+      data: { passwordHash, updatedAt: new Date() },
     });
 
     // Delete token
-    await prisma.verificationToken.delete({
-      where: { id: verificationToken.id },
+    await prisma.verificationToken.deleteMany({
+      where: { token },
     });
 
     // Revoke all refresh tokens
     await prisma.refreshToken.updateMany({
-      where: {
-        user: { email: verificationToken.email },
-      },
+      where: { userEmail: (verificationToken as any).email },
       data: { isRevoked: true },
     });
   }
@@ -423,13 +446,13 @@ class AuthService {
 
     // Update user
     await prisma.user.update({
-      where: { email: verificationToken.email },
-      data: { emailVerified: true },
+      where: { email: (verificationToken as any).email },
+      data: { emailVerified: true, updatedAt: new Date() },
     });
 
     // Delete token
-    await prisma.verificationToken.delete({
-      where: { id: verificationToken.id },
+    await prisma.verificationToken.deleteMany({
+      where: { token },
     });
   }
 
@@ -441,9 +464,7 @@ class AuthService {
     currentPassword: string,
     newPassword: string
   ): Promise<void> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = (await prisma.user.findFirst({ where: { id: userId } })) as unknown as User | null;
 
     if (!user || !user.passwordHash) {
       throw new NotFoundError('User not found');
@@ -464,7 +485,7 @@ class AuthService {
     // Update password
     await prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: { passwordHash, updatedAt: new Date() },
     });
 
     // Revoke all refresh tokens except current session
@@ -482,7 +503,7 @@ class AuthService {
       userId: user.id,
       email: user.email,
       username: user.username,
-      role: user.role,
+      role: user.role ?? 'USER',
     };
 
     // Generate access token
@@ -501,6 +522,10 @@ class AuthService {
         userId: user.id,
         token: refreshToken,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        isRevoked: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userEmail: user.email,
       },
     });
 
@@ -535,6 +560,8 @@ class AuthService {
         token,
         type,
         expiresAt: new Date(Date.now() + expiry),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -554,9 +581,7 @@ class AuthService {
     let counter = 0;
 
     while (true) {
-      const exists = await prisma.user.findUnique({
-        where: { username },
-      });
+      const exists = (await prisma.user.findFirst({ where: { username } })) as unknown as User | null;
 
       if (!exists) break;
 

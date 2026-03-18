@@ -10,7 +10,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { env, config } from './config/index.js';
 import { logger } from './lib/logger.js';
-import { prisma } from './lib/prisma.js';
+import mongoClientPromise from './lib/mongo.js';
 import { redis, isRedisAvailable } from './lib/redis.js';
 
 // Import routes
@@ -121,12 +121,15 @@ if (env.NODE_ENV === 'development') {
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
   try {
-    // Check database connection (MongoDB uses runCommand instead of raw SQL)
-    await prisma.$runCommandRaw({ ping: 1 });
-    
+    // Check database connection
+    const mongoClient = await mongoClientPromise;
+    await mongoClient.db().command({ ping: 1 });
+
     // Check Redis connection (optional)
-    const redisStatus = config.features.redis 
-      ? (isRedisAvailable() ? 'connected' : 'error') 
+    const redisStatus = config.features.redis
+      ? isRedisAvailable()
+        ? 'connected'
+        : 'error'
       : 'disabled';
     if (config.features.redis && redis && isRedisAvailable()) {
       await redis.ping();
@@ -239,7 +242,8 @@ const gracefulShutdown = async (signal: string) => {
 
   try {
     // Close database connection
-    await prisma.$disconnect();
+    const mongoClient = await mongoClientPromise;
+    await mongoClient.close();
     logger.info('Database connection closed');
 
     // Close Redis connection (if available)

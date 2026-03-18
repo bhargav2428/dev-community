@@ -2,7 +2,6 @@
 // Global error handler for the API
 
 import { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
 import { AppError, isAppError } from '../utils/errors.js';
 import { sendError } from '../utils/response.js';
 import { logger } from '../lib/logger.js';
@@ -38,13 +37,17 @@ export const errorHandler = (
     );
   }
 
-  // Handle Prisma errors
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return handlePrismaError(error, res);
-  }
-
-  if (error instanceof Prisma.PrismaClientValidationError) {
-    return sendError(res, 'VALIDATION_ERROR', 'Invalid data provided', 400);
+  // Handle database errors (MongoDB)
+  const anyError = error as any;
+  if (anyError.code === 11000) {
+    // Duplicate key error
+    const field = Object.keys(anyError.keyPattern || {})[0] || 'field';
+    return sendError(
+      res,
+      'CONFLICT',
+      `A record with this ${field} already exists`,
+      409
+    );
   }
 
   // Handle JWT errors
@@ -65,52 +68,6 @@ export const errorHandler = (
   );
 };
 
-/**
- * Handle Prisma-specific errors
- */
-const handlePrismaError = (
-  error: Prisma.PrismaClientKnownRequestError,
-  res: Response
-): Response => {
-  switch (error.code) {
-    // Unique constraint violation
-    case 'P2002': {
-      const target = (error.meta?.target as string[]) || [];
-      const field = target[0] || 'field';
-      return sendError(
-        res,
-        'CONFLICT',
-        `A record with this ${field} already exists`,
-        409
-      );
-    }
-    
-    // Record not found
-    case 'P2025':
-      return sendError(res, 'NOT_FOUND', 'Record not found', 404);
-    
-    // Foreign key constraint failed
-    case 'P2003':
-      return sendError(
-        res,
-        'BAD_REQUEST',
-        'Related record does not exist',
-        400
-      );
-    
-    // Record to update not found
-    case 'P2001':
-      return sendError(res, 'NOT_FOUND', 'Record to update not found', 404);
-    
-    default:
-      return sendError(
-        res,
-        'DATABASE_ERROR',
-        'A database error occurred',
-        500
-      );
-  }
-};
 
 /**
  * 404 Not Found handler

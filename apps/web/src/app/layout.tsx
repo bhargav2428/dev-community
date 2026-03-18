@@ -18,11 +18,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'DevCommunity - Where Developers Build Together',
-    template: '%s | DevCommunity',
+    default: 'BFD - BuildForDevs',
+    template: '%s | BFD',
   },
   description:
-    'Join the ultimate social network for developers. Connect, collaborate, and build amazing projects with developers worldwide.',
+    'BuildForDevs (BFD): The social network for developers to connect, collaborate, and build together.',
   keywords: [
     'developers',
     'programming',
@@ -34,10 +34,12 @@ export const metadata: Metadata = {
     'startup',
     'hackathon',
     'tech community',
+    'buildfordevs',
+    'bfd',
   ],
-  authors: [{ name: 'DevCommunity Team' }],
-  creator: 'DevCommunity',
-  publisher: 'DevCommunity',
+  authors: [{ name: 'BuildForDevs Team' }],
+  creator: 'BuildForDevs',
+  publisher: 'BuildForDevs',
   formatDetection: {
     email: false,
     address: false,
@@ -48,26 +50,26 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    title: 'DevCommunity - Where Developers Build Together',
+    title: 'BFD - BuildForDevs',
     description:
-      'Join the ultimate social network for developers. Connect, collaborate, and build amazing projects.',
-    siteName: 'DevCommunity',
+      'BuildForDevs (BFD): The social network for developers to connect, collaborate, and build together.',
+    siteName: 'BFD',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'DevCommunity',
+        alt: 'BFD',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DevCommunity - Where Developers Build Together',
+    title: 'BFD - BuildForDevs',
     description:
-      'Join the ultimate social network for developers. Connect, collaborate, and build amazing projects.',
+      'BuildForDevs (BFD): The social network for developers to connect, collaborate, and build together.',
     images: ['/og-image.png'],
-    creator: '@devcommunity',
+    creator: '@buildfordevs',
   },
   robots: {
     index: true,
@@ -81,9 +83,9 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: '/icons/icon-192x192.svg',
-    shortcut: '/icons/icon-192x192.svg',
-    apple: '/icons/icon-192x192.svg',
+    icon: '/icons/bfd-cube.svg',
+    shortcut: '/icons/bfd-cube.svg',
+    apple: '/icons/bfd-cube.svg',
   },
   manifest: '/site.webmanifest',
 };

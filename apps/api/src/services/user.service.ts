@@ -2,6 +2,7 @@
 // Handles user profile, skills, experience, and social features
 
 import { prisma } from '../lib/prisma.js';
+import mongoClientPromise from '../lib/mongo.js';
 import { cache, cacheKeys } from '../lib/redis.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../utils/errors.js';
 import type { 
@@ -120,16 +121,19 @@ class UserService {
     username: string,
     requesterId?: string
   ): Promise<UserWithProfile | null> {
-    const user = await prisma.user.findUnique({
-      where: { username, deletedAt: null },
-      select: publicUserSelect,
-    });
+    const client = await mongoClientPromise;
+    const db = client.db();
+    const user = await db.collection('User').findOne({ username, deletedAt: null });
 
     if (!user) return null;
 
-    if (user.profileVisibility === 'PRIVATE' && requesterId !== user.id) {
+    // Optionally, fetch related profile, skills, counts, etc. (simplified for now)
+    if (user.profileVisibility === 'PRIVATE' && requesterId !== user._id?.toString()) {
       throw new ForbiddenError('This profile is private');
     }
+
+    // Map _id to id for compatibility
+    user.id = user._id?.toString();
 
     return user as unknown as UserWithProfile;
   }

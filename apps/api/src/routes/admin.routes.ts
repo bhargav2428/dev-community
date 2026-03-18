@@ -753,10 +753,13 @@ router.get(
         })
       : [];
 
-    const reportCountMap = groupedReports.reduce<Record<string, number>>((acc, row) => {
-      acc[row.entityId] = row._count._all;
-      return acc;
-    }, {});
+    const reportCountMap = (groupedReports as any).reduce(
+      (acc: Record<string, number>, row: any) => {
+        acc[row.entityId] = row._count._all;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const postsWithReportCount = posts.map((post) => ({
       ...post,
@@ -967,8 +970,8 @@ router.get(
         })
       : [];
 
-    const voteCountMap = voteGroups.reduce<Record<string, { upvotes: number; downvotes: number }>>(
-      (acc, row) => {
+    const voteCountMap = (voteGroups as any).reduce(
+      (acc: Record<string, { upvotes: number; downvotes: number }>, row: any) => {
         if (!acc[row.ideaId]) {
           acc[row.ideaId] = { upvotes: 0, downvotes: 0 };
         }
@@ -976,7 +979,7 @@ router.get(
         if (row.value < 0) acc[row.ideaId].downvotes += row._count._all;
         return acc;
       },
-      {}
+      {} as Record<string, { upvotes: number; downvotes: number }>
     );
 
     const ideasWithCounts = ideas.map((idea) => ({
@@ -1270,7 +1273,13 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { message, severity } = req.body;
+    // Accept both 'reason' (from frontend) and 'message' (for backward compatibility)
+    const { reason, message, severity } = req.body;
+    const notificationMessage = reason || message;
+
+    if (!notificationMessage) {
+      return res.status(400).json({ message: 'Warning message is required.' });
+    }
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
@@ -1283,7 +1292,7 @@ router.post(
         userId: id,
         type: 'SYSTEM',
         title: `Warning from Admin`,
-        message: message,
+        message: notificationMessage,
         entityType: 'WARNING',
         entityId: severity || 'medium',
       },
@@ -1294,7 +1303,7 @@ router.post(
       action: 'WARN_USER',
       targetType: 'USER',
       targetId: id,
-      details: { message, severity },
+      details: { message: notificationMessage, severity },
     });
 
     sendSuccess(res, { message: 'Warning sent to user' });
@@ -1306,15 +1315,30 @@ router.post(
   '/announcements',
   requireSuperAdmin,
   asyncHandler(async (req, res) => {
-    const { title, content, type } = req.body;
+    const {
+      title,
+      content,
+      type,
+      targetAudience,
+      isPinned,
+      showBanner,
+      startDate,
+      endDate
+    } = req.body;
 
-    // Get all users
+    // Get all users (or filter by audience)
+    let userFilter: any = { deletedAt: null };
+    if (targetAudience === 'ADMINS') userFilter.role = 'ADMIN';
+    if (targetAudience === 'MODERATORS') userFilter.role = 'MODERATOR';
+    if (targetAudience === 'USERS') userFilter.role = 'USER';
+    // Default: ALL
+
     const users = await prisma.user.findMany({
-      where: { deletedAt: null },
+      where: userFilter,
       select: { id: true },
     });
 
-    // Create notifications for all users
+    // Create notifications for all users with extra fields
     await prisma.notification.createMany({
       data: users.map((user) => ({
         userId: user.id,
@@ -1322,7 +1346,12 @@ router.post(
         title,
         message: content || title,
         entityType: 'ANNOUNCEMENT',
-        entityId: type || 'info',
+        entityId: type || 'INFO',
+        isPinned: !!isPinned,
+        showBanner: !!showBanner,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        readAt: null,
       })),
     });
 
@@ -1331,7 +1360,7 @@ router.post(
       action: 'CREATE_ANNOUNCEMENT',
       targetType: 'SYSTEM',
       targetId: 'announcement',
-      details: { title, recipientCount: users.length },
+      details: { title, recipientCount: users.length, targetAudience, isPinned, showBanner, startDate, endDate },
     });
 
     sendSuccess(res, { 

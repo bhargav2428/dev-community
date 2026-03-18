@@ -170,7 +170,11 @@ export default function AdminUsersPage() {
       setSelectedUser(null);
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Failed to send warning');
+      if (error?.message?.includes('User not found')) {
+        toast.error('User not found or already deleted.');
+      } else {
+        toast.error(error?.message || 'Failed to send warning');
+      }
     },
   });
 
@@ -525,9 +529,12 @@ export default function AdminUsersPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
-                              setSelectedUser(user);
-                              setWarnDialogOpen(true);
+                              if (!user.deletedAt) {
+                                setSelectedUser(user);
+                                setWarnDialogOpen(true);
+                              }
                             }}
+                            disabled={!!user.deletedAt}
                           >
                             <AlertTriangle className="h-4 w-4 mr-2" />
                             Send Warning

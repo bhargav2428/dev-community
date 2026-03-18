@@ -3,7 +3,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { ValidationError } from '../utils/errors.js';
+import { BadRequestError } from '../utils/errors.js';
 
 type RequestPart = 'body' | 'query' | 'params';
 
@@ -39,7 +39,7 @@ export const validate = <T>(
           details[path].push(err.message);
         });
 
-        next(new ValidationError('Validation failed', { errors: details }));
+        next(new BadRequestError('Validation failed', { errors: details }));
       } else {
         next(error);
       }
@@ -84,7 +84,7 @@ export const validateMultiple = (schemas: {
       }
 
       if (Object.keys(errors).length > 0) {
-        next(new ValidationError('Validation failed', { errors }));
+        next(new BadRequestError('Validation failed', { errors }));
       } else {
         next();
       }

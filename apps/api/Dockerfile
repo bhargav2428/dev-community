@@ -8,7 +8,6 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
-COPY prisma ./prisma
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -17,7 +16,6 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma client
-RUN pnpm db:generate
 
 # Build
 RUN pnpm build
@@ -38,7 +36,6 @@ RUN adduser --system --uid 1001 expressjs
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
 
 # Set ownership
 RUN chown -R expressjs:nodejs /app

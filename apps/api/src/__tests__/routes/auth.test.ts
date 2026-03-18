@@ -2,7 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import { authRouter } from '../../routes/auth.routes';
+import authRouter from '../../routes/auth.routes';
+import { errorHandler } from '../../middleware/error.middleware';
 import { prisma } from '../../lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -11,6 +12,7 @@ import jwt from 'jsonwebtoken';
 const app = express();
 app.use(express.json());
 app.use('/api/v1/auth', authRouter);
+app.use(errorHandler);
 
 describe('Authentication API', () => {
   beforeEach(() => {
@@ -201,7 +203,7 @@ describe('Authentication API', () => {
         userId: 'user-id',
         expiresAt: new Date(Date.now() + 86400000),
       });
-      (prisma.user.findUnique as any).mockResolvedValue(mockUser);
+      (prisma.user.findFirst as any).mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post('/api/v1/auth/refresh')
@@ -241,7 +243,7 @@ describe('Authentication API', () => {
   describe('POST /api/v1/auth/forgot-password', () => {
     it('should send password reset email for valid user', async () => {
       const mockUser = { id: 'user-id', email: 'test@example.com' };
-      (prisma.user.findUnique as any).mockResolvedValue(mockUser);
+      (prisma.user.findFirst as any).mockResolvedValue(mockUser);
 
       const res = await request(app)
         .post('/api/v1/auth/forgot-password')

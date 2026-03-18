@@ -44,7 +44,7 @@ DevCommunity is a production-grade social network platform designed for develope
 ### Backend
 - **Runtime:** Node.js + Express.js
 - **Language:** TypeScript
-- **Database:** PostgreSQL + Prisma ORM
+- **Database:** MongoDB (native driver)
 - **Cache:** Redis
 - **Real-time:** Socket.io
 - **Auth:** JWT + OAuth (GitHub, Google)
